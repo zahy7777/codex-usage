@@ -43,14 +43,14 @@ type Call struct {
 	Model      string           `json:"model,omitempty"`
 	Usage      model.TokenUsage `json:"usage"`
 	Confidence string           `json:"confidence"`
-	Messages   []Message        `json:"messages,omitempty"`
 	Event      model.UsageEvent `json:"-"`
 }
 type Message struct {
-	Kind   string `json:"kind"`
-	Text   string `json:"text,omitempty"`
-	CallID string `json:"call_id,omitempty"`
-	Name   string `json:"name,omitempty"`
+	Kind       string `json:"kind"`
+	Text       string `json:"text,omitempty"`
+	CallID     string `json:"call_id,omitempty"`
+	ResponseID string `json:"response_id,omitempty"`
+	Name       string `json:"name,omitempty"`
 }
 
 type rolloutLine struct {
@@ -125,7 +125,7 @@ func ReadLedger(ctx context.Context, db *store.Store, threadID, detailTurn strin
 		if !ok {
 			continue
 		} // Legacy overlap or fork replay is not a new charged call.
-		turn.Calls = append(turn.Calls, Call{ID: r.ResponseID, Model: event.Model, Usage: r.Usage, Confidence: event.Confidence, Messages: []Message{}, Event: event})
+		turn.Calls = append(turn.Calls, Call{ID: r.ResponseID, Model: event.Model, Usage: r.Usage, Confidence: event.Confidence, Event: event})
 	}
 	for _, turn := range byTurn {
 		if len(turn.Models) == 1 {
@@ -175,11 +175,11 @@ func readVisible(path, turnID string, turn *Turn, offset, limit int) error {
 	if offset < 0 {
 		offset = 0
 	}
-	calls := map[string]*Call{}
+	calls := map[string]bool{}
 	for i := range turn.Calls {
-		calls[turn.Calls[i].ID] = &turn.Calls[i]
+		calls[turn.Calls[i].ID] = true
 	}
-	pending := []Message{}
+	pending := []int{}
 	callForTool := map[string]string{}
 	currentTurn := ""
 	visible := []Message{}
@@ -226,11 +226,9 @@ func readVisible(path, turnID string, turn *Turn, offset, limit int) error {
 			if !ok {
 				continue
 			}
-			if x.Type == "custom_tool_call_output" {
+			if x.Type == "custom_tool_call_output" || x.Type == "function_call_output" {
 				if id := callForTool[x.CallID]; id != "" {
-					if c := calls[id]; c != nil {
-						c.Messages = append(c.Messages, msg)
-					}
+					msg.ResponseID = id
 				}
 				visible = append(visible, msg)
 				continue
@@ -239,7 +237,7 @@ func readVisible(path, turnID string, turn *Turn, offset, limit int) error {
 				visible = append(visible, msg)
 				continue
 			}
-			pending = append(pending, msg)
+			pending = append(pending, len(visible))
 			visible = append(visible, msg)
 		case "token_usage_record":
 			var x struct {
@@ -249,9 +247,10 @@ func readVisible(path, turnID string, turn *Turn, offset, limit int) error {
 			if json.Unmarshal(line.Payload, &x) != nil || x.TurnID != turnID {
 				continue
 			}
-			if c := calls[x.ResponseID]; c != nil {
-				c.Messages = append(c.Messages, pending...)
-				for _, m := range pending {
+			if calls[x.ResponseID] {
+				for _, index := range pending {
+					visible[index].ResponseID = x.ResponseID
+					m := visible[index]
 					if m.CallID != "" && m.Kind == "tool_call" {
 						callForTool[m.CallID] = x.ResponseID
 					}
@@ -262,6 +261,12 @@ func readVisible(path, turnID string, turn *Turn, offset, limit int) error {
 	}
 	if err := scanner.Err(); err != nil {
 		return err
+	}
+	// 工具结果可能先于该次调用的用量记录写入；归属在完整扫描后确认。
+	for i := range visible {
+		if visible[i].Kind == "tool_result" {
+			visible[i].ResponseID = callForTool[visible[i].CallID]
+		}
 	}
 	if len(turn.Models) == 1 {
 		turn.Model = turn.Models[0]
