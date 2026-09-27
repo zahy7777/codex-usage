@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/zJay26/codex-usage/internal/app"
+	"github.com/zJay26/codex-usage/internal/dashboard/app"
 )
 
 func main() {

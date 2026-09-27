@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zJay26/codex-usage/internal/model"
+	"github.com/zJay26/codex-usage/internal/conversation/model"
 )
 
 type UnpricedReason struct {

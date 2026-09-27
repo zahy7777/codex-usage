@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/zJay26/codex-usage/internal/model"
+	"github.com/zJay26/codex-usage/internal/conversation/model"
 )
 
 const FastWeightedBasis = "codex_fast_weighted"

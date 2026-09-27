@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/zJay26/codex-usage/internal/model"
+	"github.com/zJay26/codex-usage/internal/conversation/model"
 )
 
 func TestFastMultiplierIntegerRounding(t *testing.T) {

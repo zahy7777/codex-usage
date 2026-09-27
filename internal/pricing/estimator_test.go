@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zJay26/codex-usage/internal/model"
+	"github.com/zJay26/codex-usage/internal/conversation/model"
 )
 
 func TestEvaluateGPT6AstraEventUsesPublishedRates(t *testing.T) {
