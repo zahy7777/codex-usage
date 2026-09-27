@@ -145,7 +145,7 @@ test("synthetic demo supports minute ranges with matching summary and daily tota
 test("synthetic catalog supports GPT-6 aliases and Fast estimates", async ({ page }) => {
   await page.goto(`${baseURL}?lang=en&scenario=diagnostics`, { waitUntil: "networkidle" });
   await page.locator("#pricingButton").click();
-  await page.locator(".catalog-disclosure summary").click();
+  await page.locator(".catalog-disclosure summary").last().click();
   const card = page.locator('[data-pricing-model="codex-auto-review"]');
   await card.locator("[data-rate-mode]").selectOption("alias");
   for (const item of [

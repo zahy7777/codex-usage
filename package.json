@@ -7,7 +7,7 @@
     "build:demo": "node scripts/build-demo.mjs dist/pages",
     "capture:media": "node scripts/capture-media.mjs",
     "pretest": "npm run build:demo",
-    "test": "playwright test tests/dashboard.spec.mjs tests/demo.spec.mjs",
+    "test": "playwright test tests/dashboard.spec.mjs tests/demo.spec.mjs tests/ledger.spec.mjs",
     "pretest:demo": "npm run build:demo",
     "test:demo": "playwright test tests/demo.spec.mjs"
   },

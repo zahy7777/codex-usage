@@ -18,11 +18,11 @@ import (
 	"time"
 
 	"github.com/zJay26/codex-usage/internal/conversation/model"
-	"github.com/zJay26/codex-usage/internal/pricing"
 	"github.com/zJay26/codex-usage/internal/conversation/store"
-	"github.com/zJay26/codex-usage/internal/dashboard/updater"
 	"github.com/zJay26/codex-usage/internal/conversation/usage"
+	"github.com/zJay26/codex-usage/internal/dashboard/updater"
 	usageweb "github.com/zJay26/codex-usage/internal/dashboard/web"
+	"github.com/zJay26/codex-usage/internal/pricing"
 )
 
 type Server struct {
@@ -35,6 +35,8 @@ type Server struct {
 	Updates              *updater.Manager
 	LoadPricingOverrides func() (map[string]pricing.Override, error)
 	SavePricingOverrides func(map[string]pricing.Override) error
+	LoadCreditRates      func() (map[string][]pricing.CreditRate, error)
+	SaveCreditRates      func(map[string][]pricing.CreditRate) error
 
 	scanMu               sync.Mutex
 	pricingMu            sync.Mutex
@@ -69,11 +71,14 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/v1/dimensions", s.handleDimensions)
 	mux.HandleFunc("/api/v1/session-tree", s.handleSessionTree)
 	mux.HandleFunc("/api/v1/sessions", s.handleSessions)
+	mux.HandleFunc("/api/v1/ledger", s.handleLedger)
+	mux.HandleFunc("/api/v1/hook/stop", s.handleStopHook)
 	mux.HandleFunc("/api/v1/session-estimates", s.handleSessionEstimates)
 	mux.HandleFunc("/api/v1/warnings", s.handleWarnings)
 	mux.HandleFunc("/api/v1/cost-estimate", s.handleCostEstimate)
 	mux.HandleFunc("/api/v1/pricing", s.handlePricing)
 	mux.HandleFunc("/api/v1/pricing/overrides", s.handlePricingOverrides)
+	mux.HandleFunc("/api/v1/pricing/credits", s.handleCreditRates)
 	mux.HandleFunc("/api/v1/rescan", s.handleRescan)
 	mux.HandleFunc("/api/v1/export", s.handleExport)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) })

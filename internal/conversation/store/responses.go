@@ -9,6 +9,37 @@ import (
 	"github.com/zJay26/codex-usage/internal/conversation/model"
 )
 
+// LedgerResponse is the persisted, deduplicated identity of one model request.
+type LedgerResponse struct {
+	TurnID     string           `json:"turn_id"`
+	ResponseID string           `json:"response_id"`
+	Usage      model.TokenUsage `json:"usage"`
+}
+
+func (s *Store) LedgerResponses(ctx context.Context, session string) ([]LedgerResponse, error) {
+	rows, err := s.reader().QueryContext(ctx, `SELECT turn_id,response_id,usage_json FROM response_records WHERE session_id=? ORDER BY rowid`, session)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []LedgerResponse
+	for rows.Next() {
+		var item LedgerResponse
+		var raw string
+		if err := rows.Scan(&item.TurnID, &item.ResponseID, &raw); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(raw), &item.Usage); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // Response records persist identity independently of the ledger: an overlapping
 // record may confirm already-ingested legacy usage without inserting an event.
 func (s *Store) RecordResponse(ctx context.Context, session, turn, response string, usage, cumulative model.TokenUsage) (bool, error) {

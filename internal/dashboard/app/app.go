@@ -20,14 +20,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zJay26/codex-usage/internal/dashboard/cliui"
-	"github.com/zJay26/codex-usage/internal/dashboard/config"
 	"github.com/zJay26/codex-usage/internal/conversation/model"
-	"github.com/zJay26/codex-usage/internal/dashboard/platform"
-	"github.com/zJay26/codex-usage/internal/pricing"
-	usageServer "github.com/zJay26/codex-usage/internal/dashboard/server"
 	"github.com/zJay26/codex-usage/internal/conversation/store"
 	"github.com/zJay26/codex-usage/internal/conversation/usage"
+	"github.com/zJay26/codex-usage/internal/dashboard/cliui"
+	"github.com/zJay26/codex-usage/internal/dashboard/config"
+	"github.com/zJay26/codex-usage/internal/dashboard/platform"
+	usageServer "github.com/zJay26/codex-usage/internal/dashboard/server"
+	"github.com/zJay26/codex-usage/internal/pricing"
 )
 
 var (
@@ -101,6 +101,8 @@ func (c CLI) Run(args []string) int {
 		err = c.doctor(args)
 	case "config":
 		err = c.config(args)
+	case "hook-stop":
+		err = c.hookStop(args)
 	case "version", "--version", "-v":
 		fmt.Fprintf(c.Stdout, "codex-usage %s (%s, %s) %s/%s\n", Version, Commit, BuildDate, runtime.GOOS, runtime.GOARCH)
 		return 0
@@ -209,6 +211,21 @@ func openState() (*runtimeState, error) {
 				return loadErr
 			}
 			current.PricingOverrides = overrides
+			return config.Save(paths, current)
+		},
+		LoadCreditRates: func() (map[string][]pricing.CreditRate, error) {
+			current, err := config.Load(paths)
+			if err != nil {
+				return nil, err
+			}
+			return current.CreditRates, nil
+		},
+		SaveCreditRates: func(rates map[string][]pricing.CreditRate) error {
+			current, err := config.Load(paths)
+			if err != nil {
+				return err
+			}
+			current.CreditRates = rates
 			return config.Save(paths, current)
 		},
 		Address: cfg.ListenAddress, Port: cfg.Port, Version: Version,

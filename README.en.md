@@ -31,7 +31,11 @@ Overview → minute-precision time range → hourly drill-down → calendar → 
 
 Install once to index existing history and keep new usage up to date. **Go from “How much did I use today?” to “What did these 90 minutes, this project, or this task tree consume?” in the same interface.** Regular / Fast breakdowns, minute-precision ranges, Session search, combined filters, API-equivalent costs, and exports are all included. English and Chinese, light and dark themes, display settings, and a mobile layout make it comfortable to check every day.
 
-One binary runs on Windows, Linux / WSL, or macOS, with no database service or central server to deploy. Statistics stay on the current computer; prompts, replies, and tool output are never stored, and `auth.json` is never read. Costs are estimates using bundled public API prices and Fast credit multipliers, not actual bills or account quotas.
+One binary runs on Windows, Linux / WSL, or macOS, with no database service or central server to deploy. Statistics stay on the current computer. Expanding a turn reads public prompts, replies, and tool records from its original JSONL on demand; transcript bodies are not copied into SQLite or usage exports. `auth.json` is never read. API-equivalent USD and Codex credits are separate estimates, not actual bills or account quotas.
+
+## This fork: thread → turn → model call
+
+Expand a task into turns and model calls with independent `response_id` values. A turn shows visible user, assistant, and tool records on demand. Old `token_count` logs without response identities retain turn totals and explicitly mark call details unavailable. Mixed-model turns list confirmed models, and each thread links back to `codex://threads/<Thread ID>`. Pricing settings include effective-date Codex-credit schedules alongside API rates. See the [Chinese README](README.md#本-fork聊天--轮--调用) for the local Stop-hook command and API paths.
 
 ## Install directly
 
@@ -124,7 +128,7 @@ Starting with **v2.5.0**, the application checks GitHub for the latest stable re
 |---|---|
 | Tokens, models, sources, projects, Threads, Sessions, Agents, and calendar days on this machine | Usage from other machines on the account |
 | Existing and newly added local Codex session usage | Account quota, subscription balance, or real bills |
-| API-equivalent cost using Standard text rates and Fast credit multipliers, plus pricing coverage | Prompts, replies, reasoning content, tool output, or `auth.json` |
+| Separate API-equivalent USD and Codex-credit estimates, plus pricing coverage | Actual billing, account quota, reasoning text, or `auth.json` |
 | Data-quality notices for duplicates, resets, malformed records, and rebuilds | Cloud sync, remote telemetry, or third-party analytics |
 
 > “Machine” means the host running Codex and codex-usage, not a remote target used by a shell or tool. Codex's official `/usage` shows account-level activity; codex-usage adds detailed attribution for the current computer.
@@ -198,7 +202,7 @@ Display settings in the header use a more comfortable type scale by default and 
 
 ### API-equivalent cost
 
-The Dashboard shows regular, Fast, and all tokens, with a mode filter. Raw Fast tokens are never multiplied. Fast cost uses Standard base rates multiplied by ChatGPT Codex credit factors: 2.5 for Astra, the GPT-5.6 family, and GPT-5.5; 2 for GPT-5.4. Models without a confirmed factor remain unpriced. History is classified only from explicit evidence for the same turn; unconfirmed usage is provisionally regular. See the [Fast accounting, backfill, and API guide (Chinese)](docs/fast-mode-accounting.md).
+The Dashboard shows regular, Fast, and all tokens, with a mode filter. Raw Fast tokens are never multiplied. API-equivalent USD uses API rates; Codex credits use their own rates and confirmed Fast factors. The explicit legacy `codex_fast_weighted` query remains available for historic comparisons. History is classified only from explicit evidence for the same turn; unconfirmed usage is provisionally regular. See the [Fast accounting, backfill, and API guide (Chinese)](docs/fast-mode-accounting.md).
 
 The estimator streams the normalized events that already passed source de-duplication and attribution filtering. It runs at query time, writes no cost data to SQLite, and leaves existing token totals unchanged. Arithmetic uses fixed-point nano-USD. Cached Input and Cache Write are removed from regular Input, and Reasoning is already included in Output, so neither is charged twice.
 
@@ -276,7 +280,7 @@ The macOS login item is `~/Library/LaunchAgents/com.zjay.codex-usage.plist`. `un
 ## Privacy boundaries
 
 - never reads or parses `auth.json`
-- never stores prompts, responses, reasoning, or tool output
+- reads public prompts, responses, and tool records only on demand from original JSONL, without storing bodies in the statistics database or usage exports; reasoning text remains hidden
 - never stores a Codex account ID
 - uses no CDN; frontend assets are embedded
 - refuses to listen outside `127.0.0.1`

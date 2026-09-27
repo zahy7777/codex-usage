@@ -25,11 +25,12 @@ const (
 )
 
 type Config struct {
-	ListenAddress       string                      `json:"listen_address"`
-	Port                int                         `json:"port"`
-	ScanIntervalSeconds int                         `json:"scan_interval_seconds"`
-	ExtraCodexHomes     []string                    `json:"extra_codex_homes,omitempty"`
-	PricingOverrides    map[string]pricing.Override `json:"pricing_overrides,omitempty"`
+	ListenAddress       string                          `json:"listen_address"`
+	Port                int                             `json:"port"`
+	ScanIntervalSeconds int                             `json:"scan_interval_seconds"`
+	ExtraCodexHomes     []string                        `json:"extra_codex_homes,omitempty"`
+	PricingOverrides    map[string]pricing.Override     `json:"pricing_overrides,omitempty"`
+	CreditRates         map[string][]pricing.CreditRate `json:"credit_rates,omitempty"`
 }
 
 type Paths struct {
@@ -203,6 +204,10 @@ func Load(paths Paths) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("无效 pricing_overrides: %w", err)
 	}
+	cfg.CreditRates, err = pricing.NormalizeCreditRates(cfg.CreditRates)
+	if err != nil {
+		return Config{}, fmt.Errorf("无效 credit_rates: %w", err)
+	}
 	return cfg, nil
 }
 
@@ -218,6 +223,10 @@ func Save(paths Paths, cfg Config) error {
 	cfg.PricingOverrides, err = pricing.NormalizeOverrides(cfg.PricingOverrides)
 	if err != nil {
 		return fmt.Errorf("无效 pricing_overrides: %w", err)
+	}
+	cfg.CreditRates, err = pricing.NormalizeCreditRates(cfg.CreditRates)
+	if err != nil {
+		return fmt.Errorf("无效 credit_rates: %w", err)
 	}
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {

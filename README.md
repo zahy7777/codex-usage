@@ -31,7 +31,21 @@
 
 安装一次，历史记录自动整理，后续用量持续更新。**从“今天用了多少”到“这 90 分钟、这个项目、这棵子任务树花了多少”，都能在同一个界面里查清。** 常规 / Fast 拆分、精确到分钟的时间范围、Session 搜索、组合筛选、API 等价费用和数据导出一应俱全；中英双语、明暗主题、显示设置与手机布局让日常查看同样舒服。
 
-Windows、Linux / WSL、macOS 均可使用，一个程序即可安装，无需部署数据库或中心服务器。所有统计留在当前电脑，不保存 prompt、回复或工具输出，也不读取 `auth.json`。费用是按内置公开 API 单价及 Fast 额度倍率计算的等价估算，并非真实账单或账号配额。
+Windows、Linux / WSL、macOS 均可使用，一个程序即可安装，无需部署数据库或中心服务器。统计留在当前电脑；展开轮详情时才读取原始日志中的公开 prompt、回复及工具记录，不把正文写入 SQLite 或导出，也不读取 `auth.json`。API 等价美元与 Codex credits 分别估算，均非真实账单或账号配额。
+
+## 本 fork：聊天 → 轮 → 调用
+
+任务列表可展开聊天、每轮和有独立 `response_id` 的模型调用。轮详情按需读取公开用户输入、助手输出及工具请求与结果；旧式 `token_count` 只有轮级用量时会明确提示调用明细不可用。混合模型轮列出所有已确认模型，未知身份或费率保持未确认。每个聊天可通过 `codex://threads/<Thread ID>` 回到 Codex。
+
+面板分别显示输入、缓存读取、非缓存输入、缓存写入、输出、推理输出和总 Token。推理输出属于输出，不重复计价。定价对话框可配置模型 API 单价及带生效日期的 Codex credits 费率；内置目录是当前版本的价格快照，历史估算可能需要补充当时费率。正文仅从本机原始 JSONL 按需读取，统计库和用量导出不包含正文。
+
+开发运行：`go run ./cmd/codex-usage serve`。服务默认绑定 `127.0.0.1:43189`，可通过 `CODEX_USAGE_HOME` 指向独立状态目录。Stop hook 可在全局 `~/.codex/hooks.json` 中使用以下命令，程序在本地服务运行时增量扫描，服务离线时正常结束；定期扫描仍会补齐漏触发的记录：
+
+```json
+{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"<absolute-path-to-codex-usage> hook-stop --state-dir <absolute-state-dir>","timeout":10}]}]}}
+```
+
+本 fork 的代码按 [Conversation](internal/conversation/README.md)、[Pricing](internal/pricing/README.md)、[Dashboard](internal/dashboard/README.md) 管理；`cmd/` 装配入口。API：`GET /api/v1/ledger?thread_id=...` 返回三级用量；加 `turn_id` 与 `offset`、`limit` 按需读取公开正文；`GET/PUT /api/v1/pricing/credits` 管理生效日期费率；`POST /api/v1/hook/stop` 接收 `session_id`、`turn_id`。
 
 ## 直接安装
 
@@ -124,7 +138,7 @@ chmod +x codex-usage
 |---|---|
 | 当前电脑的 Token、模型、来源、项目、Thread、Session、Agent 和自然日 | 账号在其他电脑上的用量 |
 | 本机已有以及之后新增的 Codex session 用量记录 | 账号配额、订阅余额或真实账单 |
-| 按 Standard API 文本价格与 Fast 额度倍率折算的费用和定价覆盖率 | prompt、回复、reasoning 内容、工具输出或 `auth.json` |
+| 分开的 API 等价美元与 Codex credits 估算、定价覆盖率 | 真实账单、账号额度、reasoning 正文或 `auth.json` |
 | 重复、回退、坏记录和文件重建等数据质量提示 | 云同步、远程遥测或第三方分析 |
 
 > “电脑”指运行 Codex 客户端和 codex-usage 的主机，不是 shell 或 tool 实际执行的远程环境。Codex 官方 `/usage` 查看账号级活动；codex-usage 补充当前电脑上的详细归属。
@@ -198,7 +212,7 @@ Dashboard 固定为“概览 / 每日 / 明细”三个一级视图。概览默�
 
 ### 5. API 等价成本
 
-Dashboard 展示常规、Fast 和全部 token，并提供模式筛选。Fast 原始 token 不乘倍率；费用按 Standard 基价乘 ChatGPT Codex 额度倍率：Astra、GPT-5.6 系列、GPT-5.5 为 2.5 倍，GPT-5.4 为 2 倍。未知倍率的型号保留为未定价。历史模式仅凭同一 turn 的明确证据补齐，未确认部分暂归常规。详见 [Fast 模式口径、历史补齐与接口说明](docs/fast-mode-accounting.md)。
+Dashboard 展示常规、Fast 和全部 token，并提供模式筛选。Fast 原始 token 不乘倍率；API 等价美元按 API 费率估算，Codex credits 按 credits 费率及有证据的 Fast 倍率估算。历史模式仅凭同一 turn 的明确证据补齐，未确认部分暂归常规。显式请求旧版 `codex_fast_weighted` 查询参数仍可查看历史折算口径；日常面板不将其当作 API 账单。详见 [Fast 模式口径、历史补齐与接口说明](docs/fast-mode-accounting.md)。
 
 费用在查询时流式读取已经过去重、归属规则筛选后的规范事件，不写入 SQLite，也不会改变原有 Token 统计。计算使用定点 nano-USD：Cached Input 与 Cache Write 从 Input 中扣除，Reasoning 已包含在 Output 中，不会重复收费。
 
@@ -278,7 +292,7 @@ macOS 登录项位于 `~/Library/LaunchAgents/com.zjay.codex-usage.plist`。`uni
 `codex-usage` 的边界是刻意收紧的：
 
 - 不读取或解析 `auth.json`
-- 不保存 prompt、回复、reasoning 或工具输出
+- 展开轮详情时按需读取原始 JSONL 的公开 prompt、回复及工具记录；不把正文存入统计库或用量导出，也不展示 reasoning 正文
 - 不保存 Codex 账号 ID
 - 不使用 CDN，页面资源全部离线内嵌
 - 不监听 `127.0.0.1` 以外的地址

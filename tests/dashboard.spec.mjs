@@ -646,7 +646,7 @@ test("revisiting a range or view reuses the current data revision", async ({ pag
 
   await page.locator('[data-overview-range="all"]').click();
   await expect(page.locator("#overviewCost")).not.toHaveClass(/loading/);
-  const allCostKey = "/api/v1/cost-estimate?bucket=day&cost_basis=codex_fast_weighted";
+  const allCostKey = "/api/v1/cost-estimate?bucket=day";
   const firstAllCount = dataRequests.filter((item) => item === allCostKey).length;
   expect(firstAllCount).toBe(1);
 
@@ -991,7 +991,7 @@ test("GPT-6 Sol and Luna price recorded usage and appear in the catalog", async 
 
   await page.goto(dashboardURL, { waitUntil: "networkidle" });
   await page.locator("#pricingButton").click();
-  await page.locator(".catalog-disclosure summary").click();
+  await page.locator(".catalog-disclosure summary").last().click();
   await page.locator("#newOverrideModel").fill("e2e-gpt6-alias");
   await page.locator("#addOverride").click();
   const card = page.locator('[data-pricing-model="e2e-gpt6-alias"]');

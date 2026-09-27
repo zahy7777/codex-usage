@@ -378,6 +378,8 @@
       { created_at: now.toISOString(), occurrences: 1, kind: "cumulative_gap_fallback", path: "synthetic://rollout", detail: "Synthetic cumulative boundary could not be fully verified; last_token_usage conservatively filled the delta." }
     ] : [] });
     if (endpoint === "/api/v1/pricing" && method === "GET") return jsonResponse(pricingPayload());
+    if (endpoint === "/api/v1/pricing/credits" && method === "GET") return jsonResponse({catalog_as_of:"2026-09-28",catalog:{"gpt-6-sol":{input:"50",cached_input:"5",output:"250"}},overrides:{}});
+    if (endpoint === "/api/v1/pricing/credits" && method === "PUT") return jsonResponse({catalog_as_of:"2026-09-28",catalog:{},overrides:{}});
     if (endpoint === "/api/v1/pricing/overrides" && method === "PUT") {
       try {
         pricingOverrides = JSON.parse(init.body || "{}").overrides || {};

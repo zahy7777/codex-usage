@@ -400,7 +400,7 @@ function filterQuery(extra = {}, filters = state.filters) {
 }
 
 function apiURL(path, extra = {}, filters = state.filters) {
-  const query = filterQuery({ ...extra, ...(["/api/v1/cost-estimate", "/api/v1/sessions", "/api/v1/session-estimates", "/api/v1/session-tree"].includes(path) ? { cost_basis: "codex_fast_weighted" } : {}) }, filters);
+  const query = filterQuery(extra, filters);
   return query ? `${path}?${query}` : path;
 }
 
@@ -1488,7 +1488,7 @@ function renderSessions(items, { estimatesPending = false } = {}) {
       ? `<div class="session-metric session-cost pending" data-session-cost aria-busy="true"><small class="session-mobile-label">API</small><strong>${escapeHTML(t("details.costPending"))}</strong></div>`
       : `<div class="session-metric session-cost" data-session-cost title="${escapeHTML(presentation.title)}"><small class="session-mobile-label">API</small><strong>${escapeHTML(presentation.cost)}</strong>${presentation.partialCoverage ? `<small>${escapeHTML(presentation.partialCoverage)}</small>` : ""}</div>`;
     return `<article class="session-row ${tree ? "task-tree-row" : ""}" style="--task-depth:${Math.min(item.depth||0,6)}" data-session-id="${escapeHTML(item.session_id)}">
-    <div class="session-cell task-name">${tree && item.children ? `<button type="button" class="tree-toggle pressable" data-tree-toggle="${escapeHTML(item.session_id)}" aria-expanded="${!state.treeCollapsed.has(item.session_id)}" aria-label="${escapeHTML(t("tree.toggle", {title:item.title || item.session_id}))}">${state.treeCollapsed.has(item.session_id) ? "＋" : "−"}</button>` : ""}<strong title="${escapeHTML(item.title || item.session_id)}">${escapeHTML(item.title || t("dynamic.untitledThread"))}</strong><small title="${escapeHTML(item.session_id)}">${escapeHTML(shortId(item.session_id))}</small>${tree ? `<small class="tree-note">${escapeHTML(item.context_only ? t("tree.context") : t("tree.own"))}${item.relationship_status ? ` · ${escapeHTML(t(`tree.${item.relationship_status}`))}` : ""}${item.forked_from_id ? ` · ${escapeHTML(t("tree.fork", {id:shortId(item.forked_from_id)}))}` : ""}</small>` : ""}</div>
+    <div class="session-cell task-name">${tree && item.children ? `<button type="button" class="tree-toggle pressable" data-tree-toggle="${escapeHTML(item.session_id)}" aria-expanded="${!state.treeCollapsed.has(item.session_id)}" aria-label="${escapeHTML(t("tree.toggle", {title:item.title || item.session_id}))}">${state.treeCollapsed.has(item.session_id) ? "＋" : "−"}</button>` : ""}<strong title="${escapeHTML(item.title || item.session_id)}">${escapeHTML(item.title || t("dynamic.untitledThread"))}</strong><small title="${escapeHTML(item.session_id)}">${escapeHTML(shortId(item.session_id))}</small><a href="codex://threads/${encodeURIComponent(item.session_id)}" aria-label="在 Codex 打开聊天">在 Codex 打开</a><button type="button" class="ledger-toggle pressable" data-ledger-thread="${escapeHTML(item.session_id)}" aria-expanded="false">查看轮与调用</button>${tree ? `<small class="tree-note">${escapeHTML(item.context_only ? t("tree.context") : t("tree.own"))}${item.relationship_status ? ` · ${escapeHTML(t(`tree.${item.relationship_status}`))}` : ""}${item.forked_from_id ? ` · ${escapeHTML(t("tree.fork", {id:shortId(item.forked_from_id)}))}` : ""}</small>` : ""}</div>
     <div class="session-cell"><span title="${escapeHTML(item.project_path || t("common.notRecorded"))}">${escapeHTML(shortPath(item.project_path))}</span><small title="${escapeHTML(item.project_path || "")}">${escapeHTML(item.project_path || t("common.notRecorded"))}</small></div>
     <div class="session-cell"><strong title="${escapeHTML(item.model || t("common.unknownModel"))}">${escapeHTML(item.model || t("common.unknownModel"))}</strong><span>${escapeHTML(item.source || t("common.unknownSource"))}</span></div>
     <div class="session-cell"><span class="agent-badge">${escapeHTML(item.agent_type || "main")}</span><span class="confidence-badge ${escapeHTML(item.confidence)}">${confidenceLabel(item.confidence)}</span></div>
@@ -1496,9 +1496,11 @@ function renderSessions(items, { estimatesPending = false } = {}) {
     ${costCell}
     <div class="session-cell"><span>${escapeHTML(localTime(item.last_usage))}</span></div>
     <button class="session-filter pressable ${active ? "active" : ""}" type="button" data-session-filter="${escapeHTML(item.session_id)}" aria-pressed="${active}">${escapeHTML(t(active ? "details.cancelSessionFilter" : "details.onlySession"))}</button>
+    <section class="ledger-panel" data-ledger-panel hidden aria-label="轮与模型调用"></section>
   </article>`;
   }).join("");
   $$('[data-tree-toggle]', container).forEach(button => button.addEventListener("click", () => {const id=button.dataset.treeToggle;if(state.treeCollapsed.has(id)) state.treeCollapsed.delete(id);else state.treeCollapsed.add(id);renderSessions(state.treeItems);const toggle=$$('[data-tree-toggle]',container).find(b=>b.dataset.treeToggle===id);toggle?.focus();}));
+  $$('[data-ledger-thread]',container).forEach(button=>button.addEventListener("click",()=>toggleLedger(button)));
   $$('[data-session-filter]', container).forEach((button) => button.addEventListener("click", () => {
     if (state.filters.session_id === button.dataset.sessionFilter) delete state.filters.session_id;
     else state.filters.session_id = button.dataset.sessionFilter;
@@ -1507,6 +1509,29 @@ function renderSessions(items, { estimatesPending = false } = {}) {
     resetDataSelections();
     loadDetails();
   }));
+}
+
+const ledgerUsage = (u={}) => `输入 ${fullToken(u.input||0)} · 缓存读取 ${fullToken(u.cached_input||0)} · 非缓存输入 ${fullToken(Math.max(0,(u.input||0)-(u.cached_input||0)-(u.cache_write_input||0)))} · 缓存写入 ${fullToken(u.cache_write_input||0)} · 输出 ${fullToken(u.output||0)} · 推理输出 ${fullToken(u.reasoning_output||0)} · 总计 ${fullToken(u.total||0)}`;
+const ledgerPrice=(x={})=>`API 等价 ${x.api_equivalent?.unpriced_tokens?`部分 $${escapeHTML(x.api_equivalent.usd||'0')}`:`$${escapeHTML(x.api_equivalent?.usd||'0')}`} · Codex credits 估算 ${x.codex_credits?.unpriced_tokens?`部分 ${escapeHTML(x.codex_credits.credits||'未确认')}`:escapeHTML(x.codex_credits?.credits||'未确认')}`;
+const ledgerMessages = (items=[]) => items.map(m=>`<div class="ledger-message"><strong>${escapeHTML(m.kind)}${m.name?` · ${escapeHTML(m.name)}`:""}</strong><pre>${escapeHTML(m.text||"")}</pre></div>`).join("");
+async function toggleLedger(button) {
+  const panel=button.closest('[data-session-id]').querySelector('[data-ledger-panel]');
+  if(!panel.hidden){panel.hidden=true;button.setAttribute('aria-expanded','false');return}
+  panel.hidden=false;button.setAttribute('aria-expanded','true');panel.textContent='正在读取轮汇总…';
+  const thread=button.dataset.ledgerThread;
+  try {
+    const data=await api(`/api/v1/ledger?thread_id=${encodeURIComponent(thread)}`);
+    panel.innerHTML=`<p><strong>聊天汇总</strong> · ${escapeHTML(ledgerUsage(data.usage))}<br>${ledgerPrice(data)}</p>${(data.turns||[]).map((turn,i)=>`<article class="ledger-turn"><button type="button" class="ledger-turn-button" data-ledger-turn="${escapeHTML(turn.id)}" aria-expanded="false">第 ${i+1} 轮 · ${escapeHTML(turn.model||turn.models?.join(', ')||'模型未确认')} · ${fullToken(turn.usage?.total||0)} Token</button><small>${escapeHTML(ledgerUsage(turn.usage))} · ${ledgerPrice(turn)}</small><div data-ledger-turn-body hidden></div></article>`).join('')}`;
+    panel.querySelectorAll('[data-ledger-turn]').forEach(b=>b.addEventListener('click',async()=>{
+      const body=b.nextElementSibling.nextElementSibling;if(!body.hidden){body.hidden=true;b.setAttribute('aria-expanded','false');return}
+      body.hidden=false;b.setAttribute('aria-expanded','true');body.textContent='正在读取原始日志…';
+      try {const d=await api(`/api/v1/ledger?thread_id=${encodeURIComponent(thread)}&turn_id=${encodeURIComponent(b.dataset.ledgerTurn)}&limit=100`);const turn=d.turns.find(x=>x.id===b.dataset.ledgerTurn);
+        body.innerHTML=`<h4>模型调用</h4>${turn.calls.length?turn.calls.map((c,j)=>`<details class="ledger-call"><summary>调用 ${j+1} · ${escapeHTML(c.model||'模型未确认')} · ${fullToken(c.usage?.total||0)} Token</summary><p>${escapeHTML(ledgerUsage(c.usage))}<br>${ledgerPrice(c)}</p>${ledgerMessages(c.messages)}</details>`).join(''):'旧格式或缺少逐次调用身份，调用明细不可用'}<h4>本轮公开记录</h4><div data-ledger-messages>${ledgerMessages(turn.messages)}</div>${turn.message_count>turn.messages.length?'<button type="button" class="action-button quiet pressable" data-ledger-more>加载更多</button>':''}`;
+        const more=body.querySelector('[data-ledger-more]');
+        more?.addEventListener('click',async()=>{more.disabled=true;try{const offset=body.querySelectorAll('[data-ledger-messages] .ledger-message').length;const next=await api(`/api/v1/ledger?thread_id=${encodeURIComponent(thread)}&turn_id=${encodeURIComponent(b.dataset.ledgerTurn)}&offset=${offset}&limit=100`);const page=next.turns.find(x=>x.id===b.dataset.ledgerTurn);body.querySelector('[data-ledger-messages]').insertAdjacentHTML('beforeend',ledgerMessages(page.messages));if(offset+page.messages.length>=page.message_count)more.remove();else more.disabled=false}catch(e){more.textContent=e.message}});
+      }catch(e){body.textContent=e.message}
+    }));
+  }catch(e){panel.textContent=e.message}
 }
 
 function applySessionSearch() {
@@ -1593,8 +1618,9 @@ async function openPricingDialog() {
   openDialog($("#pricingDialog"));
   $("#pricingOverrideList").innerHTML = `<div class="empty-state">${escapeHTML(t("pricing.loading"))}</div>`;
   try {
-    state.pricing = await api("/api/v1/pricing");
+    [state.pricing, state.creditPricing] = await Promise.all([api("/api/v1/pricing"), api("/api/v1/pricing/credits")]);
     renderPricing(state.pricing);
+    renderCreditPricing(state.creditPricing);
   } catch (error) {
     $("#pricingOverrideList").innerHTML = `<div class="empty-state">${escapeHTML(error.message)}</div>`;
   }
@@ -1623,6 +1649,35 @@ function renderPricing(payload) {
 
 function renderCatalog(catalog) {
   $("#pricingCatalog").innerHTML = `<div class="catalog-row header"><span>${escapeHTML(t("pricing.catalogModel"))}</span><span>Input</span><span>Cached</span><span>Write</span><span>Output</span></div>${catalog.map((entry) => `<div class="catalog-row"><a href="${escapeHTML(entry.source)}" target="_blank" rel="noreferrer">${escapeHTML(entry.display_name)}</a><span>${escapeHTML(entry.input_usd_per_million)}</span><span>${escapeHTML(entry.cached_input_usd_per_million)}</span><span>${escapeHTML(entry.cache_write_input_usd_per_million || "—")}</span><span>${escapeHTML(entry.output_usd_per_million)}</span></div>`).join("")}`;
+}
+
+function renderCreditPricing(payload) {
+  const catalog = payload.catalog || {};
+  $("#creditCatalog").innerHTML = `<div class="catalog-row header"><span>模型</span><span>输入</span><span>缓存读取</span><span>输出</span></div>${Object.entries(catalog).map(([model, rate]) => `<div class="catalog-row"><span>${escapeHTML(model)}</span><span>${escapeHTML(rate.input)}</span><span>${escapeHTML(rate.cached_input)}</span><span>${escapeHTML(rate.output)}</span></div>`).join("")}`;
+  const list = $("#creditRateList");
+  list.innerHTML = "";
+  for (const [model, rates] of Object.entries(payload.overrides || {})) for (const rate of rates) appendCreditRate(model, rate);
+}
+
+function appendCreditRate(model, rate = {}) {
+  const list = $("#creditRateList");
+  const card = document.createElement("article");
+  card.className = "override-card";
+  card.dataset.creditModel = model;
+  card.innerHTML = `<div class="override-card-head"><strong>${escapeHTML(model)}</strong><button class="remove-override pressable" type="button">移除</button></div><div class="credit-rate-grid"><label>生效日期<input type="date" data-credit="effective_from" value="${escapeHTML(rate.effective_from || new Date().toISOString().slice(0,10))}"></label><label>输入<input type="number" min="0" step="any" data-credit="input" value="${escapeHTML(rate.input || "")}" placeholder="credits / 1M"></label><label>缓存读取<input type="number" min="0" step="any" data-credit="cached_input" value="${escapeHTML(rate.cached_input || "")}" placeholder="credits / 1M"></label><label>输出<input type="number" min="0" step="any" data-credit="output" value="${escapeHTML(rate.output || "")}" placeholder="credits / 1M"></label></div>`;
+  list.appendChild(card);
+  $(".remove-override", card).addEventListener("click", () => card.remove());
+}
+
+function collectCreditRates() {
+  const overrides = {};
+  for (const card of $$('[data-credit-model]', $("#creditRateList"))) {
+    const rate = {};
+    for (const field of $$('[data-credit]', card)) rate[field.dataset.credit] = field.value.trim();
+    if (!rate.effective_from || [rate.input, rate.cached_input, rate.output].some(v => v === "" || !Number.isFinite(Number(v)) || Number(v) < 0)) throw new Error(`无效的 credits 费率：${card.dataset.creditModel}`);
+    (overrides[card.dataset.creditModel] ||= []).push(rate);
+  }
+  return overrides;
 }
 
 function appendOverrideCard(model, override = null, observedTokens = null) {
@@ -1689,8 +1744,8 @@ function collectPricingOverrides() {
 }
 
 async function savePricing() {
-  let overrides;
-  try { overrides = collectPricingOverrides(); } catch (error) { toast(error.message, true); return; }
+  let overrides, creditOverrides;
+  try { overrides = collectPricingOverrides(); creditOverrides = collectCreditRates(); } catch (error) { toast(error.message, true); return; }
   const button = $("#savePricing");
   button.disabled = true;
   try {
@@ -1699,6 +1754,7 @@ async function savePricing() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ overrides })
     });
+    state.creditPricing = await api("/api/v1/pricing/credits", {method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({overrides:creditOverrides})});
     invalidateDataCache();
     toast(t("pricing.saved"));
     closeDialog($("#pricingDialog"));
@@ -1880,6 +1936,13 @@ function setupEvents() {
   });
   $("#newOverrideModel").addEventListener("keydown", (event) => {
     if (event.key === "Enter") { event.preventDefault(); $("#addOverride").click(); }
+  });
+  $("#addCreditRate").addEventListener("click", () => {
+    const input = $("#newCreditModel");
+    const model = input.value.trim().toLowerCase();
+    if (!model) { toast("请填写模型 ID", true); return; }
+    appendCreditRate(model);
+    input.value = "";
   });
   $("#savePricing").addEventListener("click", savePricing);
   $("#exportButton").addEventListener("click", () => { setExportLinks(); openDialog($("#exportDialog")); });

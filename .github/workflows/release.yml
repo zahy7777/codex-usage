@@ -23,7 +23,7 @@ jobs:
         with:
           go-version: "1.26.8"
           cache: true
-      - run: go test ./internal/platform ./internal/app
+      - run: go test ./internal/dashboard/platform ./internal/dashboard/app
       - name: Repeated native service lifecycle checks
         run: for attempt in 1 2 3; do bash scripts/test-macos.sh; done
 

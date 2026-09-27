@@ -30,7 +30,7 @@ jobs:
       - run: go vet ./...
       - name: Accounting concurrency checks
         if: runner.os == 'Linux'
-        run: go test -race ./internal/usage ./internal/store ./internal/server
+        run: go test -race ./internal/conversation/usage ./internal/conversation/store ./internal/dashboard/server
       - name: Native macOS install, restart and uninstall
         if: runner.os == 'macOS'
         run: for attempt in 1 2 3; do bash scripts/test-macos.sh; done

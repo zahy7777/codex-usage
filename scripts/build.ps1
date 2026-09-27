@@ -42,7 +42,7 @@ try {
         $Name = "codex-usage-$($Target.OS)-$($Target.Arch)$($Target.Suffix)"
         $Output = Join-Path $Dist $Name
         $Artifacts += $Output
-        $Ldflags = "-s -w -X github.com/zJay26/codex-usage/internal/app.Version=$Version -X github.com/zJay26/codex-usage/internal/app.Commit=$Commit -X github.com/zJay26/codex-usage/internal/app.BuildDate=$BuildDate"
+        $Ldflags = "-s -w -X github.com/zJay26/codex-usage/internal/dashboard/app.Version=$Version -X github.com/zJay26/codex-usage/internal/dashboard/app.Commit=$Commit -X github.com/zJay26/codex-usage/internal/dashboard/app.BuildDate=$BuildDate"
         & $Go build -trimpath -buildvcs=false -ldflags $Ldflags -o $Output ./cmd/codex-usage
         if ($LASTEXITCODE -ne 0) { throw "build failed for $($Target.OS)/$($Target.Arch)" }
     }

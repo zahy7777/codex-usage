@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const assets = path.join(root, "internal", "web", "static");
+const assets = path.join(root, "internal", "dashboard", "web", "static");
 const svg = await readFile(path.join(assets, "icon.svg"), "utf8");
 const channel = process.env.PLAYWRIGHT_CHANNEL;
 const browser = await chromium.launch({ headless: true, ...(channel ? { channel } : {}) });

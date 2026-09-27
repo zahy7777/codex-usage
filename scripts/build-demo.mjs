@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const sourceRoot = path.join(repoRoot, "internal", "web", "static");
+const sourceRoot = path.join(repoRoot, "internal", "dashboard", "web", "static");
 const outputRoot = path.resolve(process.argv[2] || path.join(repoRoot, "dist", "pages"));
 
 await rm(outputRoot, { recursive: true, force: true });

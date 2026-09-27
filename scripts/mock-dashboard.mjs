@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const port = Number(process.argv[2] || 43191);
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../internal/web/static");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../internal/dashboard/web/static");
 const now = new Date();
 const usage = { input: 8_740_000, cached_input: 5_210_000, cache_write_input: 240_000, output: 1_430_000, reasoning_output: 620_000, total: 10_170_000 };
 const items = [
@@ -103,6 +103,8 @@ const server = http.createServer(async (request, response) => {
     return json(response, summary(Math.min(1, days / 30)));
   }
   if (url.pathname === "/api/v1/cost-estimate") return json(response, costEstimate(url));
+  if (url.pathname === "/api/v1/pricing/credits" && request.method === "GET") return json(response, {catalog_as_of:"2026-09-28",catalog:{"gpt-6-sol":{input:"50",cached_input:"5",output:"250"}},overrides:{}});
+  if (url.pathname === "/api/v1/pricing/credits" && request.method === "PUT") return json(response, {catalog_as_of:"2026-09-28",catalog:{},overrides:{}});
   if (url.pathname === "/api/v1/pricing" && request.method === "GET") return json(response, {
     basis: "current_standard_api_text_token_prices", currency: "USD", catalog_as_of: "2026-09-23", catalog, overrides: pricingOverrides,
     unpriced_models: pricingOverrides["codex-auto-review"] ? [] : [{ key: "codex-auto-review", usage: { ...usage, total: 438_000 }, events: 9, sessions: 3 }]

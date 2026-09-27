@@ -24,7 +24,7 @@ for target in windows/amd64 windows/arm64 linux/amd64 linux/arm64 darwin/amd64 d
   output="$dist/codex-usage-$os-$arch$suffix"
   CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" "$go_bin" build \
     -trimpath -buildvcs=false \
-    -ldflags "-s -w -X github.com/zJay26/codex-usage/internal/app.Version=$version -X github.com/zJay26/codex-usage/internal/app.Commit=$commit -X github.com/zJay26/codex-usage/internal/app.BuildDate=$build_date" \
+    -ldflags "-s -w -X github.com/zJay26/codex-usage/internal/dashboard/app.Version=$version -X github.com/zJay26/codex-usage/internal/dashboard/app.Commit=$commit -X github.com/zJay26/codex-usage/internal/dashboard/app.BuildDate=$build_date" \
     -o "$output" ./cmd/codex-usage
 done
 

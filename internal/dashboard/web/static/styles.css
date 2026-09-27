@@ -504,6 +504,15 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; }
 .session-filter { min-height: 30px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; color: var(--text-soft); background: transparent; cursor: pointer; font-size: var(--type-micro); font-weight: 620; white-space: nowrap; }
 .session-filter:hover { color: var(--teal-strong); border-color: color-mix(in srgb, var(--teal) 42%, var(--line)); }
 .session-filter.active { color: var(--teal-strong); border-color: color-mix(in srgb, var(--teal) 48%, var(--line)); background: var(--teal-soft); }
+.task-name a,.ledger-toggle { display:inline-block; margin:5px 8px 0 0; color:var(--teal-strong); font:inherit; background:none; border:0; cursor:pointer; text-decoration:underline; }
+.ledger-panel { grid-column:1 / -1; padding:16px; border:1px solid var(--line); border-radius:10px; background:var(--surface-raised); min-width:0; }
+.ledger-panel[hidden],.ledger-turn [hidden] {display:none}
+.ledger-turn {border-top:1px solid var(--line);padding:10px 0}
+.ledger-turn-button {display:block;background:none;border:0;color:var(--text);font:inherit;font-weight:700;cursor:pointer;text-align:left;padding:3px 0}
+.ledger-turn small {display:block;color:var(--text-soft);white-space:normal}
+.ledger-call {margin:8px 0;padding:10px;border:1px solid var(--line);border-radius:8px}
+.ledger-message {margin:8px 0;padding:8px;border-left:3px solid var(--teal);background:var(--surface);overflow-wrap:anywhere}
+.ledger-message pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;font:inherit}
 .agent-badge, .confidence-badge { display: inline-flex; width: fit-content; margin-top: 3px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; color: var(--text-soft); background: var(--surface-muted); font-size: var(--type-micro); }
 .confidence-badge.exact { color: var(--teal-strong); }
 .confidence-badge.gap_fallback, .confidence-badge.aggregate_only { color: var(--copper-strong); }
@@ -740,6 +749,9 @@ select:focus, input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px col
 .task-tree-row .task-name {position:relative;padding-left:calc(28px + var(--task-depth)*14px);border-left:1px solid var(--line);}
 .tree-toggle {position:absolute;left:calc(var(--task-depth)*14px);top:0;width:25px;height:30px;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;}
 .tree-note,.tree-subtotal {color:var(--text-soft);font-size:.72rem;white-space:normal!important;}
+.credit-rate-grid {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.credit-rate-grid label {display:grid;gap:5px;color:var(--text-soft);font-size:var(--type-caption)}
+.credit-rate-grid input {width:100%;min-width:0}
 .session-view-switch button:focus-visible,.tree-toggle:focus-visible,.tree-pagination button:focus-visible {outline:2px solid var(--teal);outline-offset:2px;}
 .footer-updates {flex-wrap:wrap;}
-@media(max-width:700px) {.sessions-toolbar{flex-wrap:wrap}.session-search{flex-basis:100%}.task-tree-row .task-name{padding-left:calc(28px + min(var(--task-depth),3)*12px)}.tree-toggle{left:calc(min(var(--task-depth),3)*12px)}}
+@media(max-width:700px) {.sessions-toolbar{flex-wrap:wrap}.session-search{flex-basis:100%}.task-tree-row .task-name{padding-left:calc(28px + min(var(--task-depth),3)*12px)}.tree-toggle{left:calc(min(var(--task-depth),3)*12px)}.credit-rate-grid{grid-template-columns:1fr 1fr}}
