@@ -35,7 +35,7 @@ One binary runs on Windows, Linux / WSL, or macOS, with no database service or c
 
 ## This fork: thread → turn → model call
 
-Expand a task into turns and model calls with independent `response_id` values. A turn shows visible user, assistant, and tool records on demand. Old `token_count` logs without response identities retain turn totals and explicitly mark call details unavailable. Mixed-model turns list confirmed models, and each thread links back to `codex://threads/<Thread ID>`. Pricing settings include effective-date Codex-credit schedules alongside API rates. See the [Chinese README](README.md#本-fork聊天--轮--调用) for the local Stop-hook command and API paths.
+Use **View turns and calls** to open a dedicated dialog with nested chat, turn and model-call cards. Visible messages load on demand from one paged stream and carry readable type tags. The four-color bar partitions usage into cached input, non-cached input (including cache writes), reasoning output and direct output. Hover, focus or select a bar to inspect its contribution to its ancestors. Old `token_count` logs without response identities retain turn totals and explicitly mark call details unavailable. Mixed-model turns list confirmed models, and each thread links back to `codex://threads/<Thread ID>`. Pricing settings include effective-date Codex-credit schedules alongside API rates. See the [Chinese README](README.md#本-fork聊天--轮--调用) for the local Stop-hook command and API paths.
 
 ## Install directly
 

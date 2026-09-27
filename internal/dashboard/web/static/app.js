@@ -1488,7 +1488,7 @@ function renderSessions(items, { estimatesPending = false } = {}) {
       ? `<div class="session-metric session-cost pending" data-session-cost aria-busy="true"><small class="session-mobile-label">API</small><strong>${escapeHTML(t("details.costPending"))}</strong></div>`
       : `<div class="session-metric session-cost" data-session-cost title="${escapeHTML(presentation.title)}"><small class="session-mobile-label">API</small><strong>${escapeHTML(presentation.cost)}</strong>${presentation.partialCoverage ? `<small>${escapeHTML(presentation.partialCoverage)}</small>` : ""}</div>`;
     return `<article class="session-row ${tree ? "task-tree-row" : ""}" style="--task-depth:${Math.min(item.depth||0,6)}" data-session-id="${escapeHTML(item.session_id)}">
-    <div class="session-cell task-name">${tree && item.children ? `<button type="button" class="tree-toggle pressable" data-tree-toggle="${escapeHTML(item.session_id)}" aria-expanded="${!state.treeCollapsed.has(item.session_id)}" aria-label="${escapeHTML(t("tree.toggle", {title:item.title || item.session_id}))}">${state.treeCollapsed.has(item.session_id) ? "＋" : "−"}</button>` : ""}<strong title="${escapeHTML(item.title || item.session_id)}">${escapeHTML(item.title || t("dynamic.untitledThread"))}</strong><small title="${escapeHTML(item.session_id)}">${escapeHTML(shortId(item.session_id))}</small><a href="codex://threads/${encodeURIComponent(item.session_id)}" aria-label="在 Codex 打开聊天">在 Codex 打开</a><button type="button" class="ledger-toggle pressable" data-ledger-thread="${escapeHTML(item.session_id)}" aria-expanded="false">查看轮与调用</button>${tree ? `<small class="tree-note">${escapeHTML(item.context_only ? t("tree.context") : t("tree.own"))}${item.relationship_status ? ` · ${escapeHTML(t(`tree.${item.relationship_status}`))}` : ""}${item.forked_from_id ? ` · ${escapeHTML(t("tree.fork", {id:shortId(item.forked_from_id)}))}` : ""}</small>` : ""}</div>
+    <div class="session-cell task-name">${tree && item.children ? `<button type="button" class="tree-toggle pressable" data-tree-toggle="${escapeHTML(item.session_id)}" aria-expanded="${!state.treeCollapsed.has(item.session_id)}" aria-label="${escapeHTML(t("tree.toggle", {title:item.title || item.session_id}))}">${state.treeCollapsed.has(item.session_id) ? "＋" : "−"}</button>` : ""}<strong title="${escapeHTML(item.title || item.session_id)}">${escapeHTML(item.title || t("dynamic.untitledThread"))}</strong><small title="${escapeHTML(item.session_id)}">${escapeHTML(shortId(item.session_id))}</small><div class="session-quick-actions"><a class="ledger-launch pressable" href="codex://threads/${encodeURIComponent(item.session_id)}" aria-label="${escapeHTML(t("ledger.openCodex"))}">${t("ledger.openCodex")}</a><button type="button" class="ledger-launch ledger-launch-primary pressable" data-ledger-thread="${escapeHTML(item.session_id)}">${t("ledger.openDetails")}</button></div>${tree ? `<small class="tree-note">${escapeHTML(item.context_only ? t("tree.context") : t("tree.own"))}${item.relationship_status ? ` · ${escapeHTML(t(`tree.${item.relationship_status}`))}` : ""}${item.forked_from_id ? ` · ${escapeHTML(t("tree.fork", {id:shortId(item.forked_from_id)}))}` : ""}</small>` : ""}</div>
     <div class="session-cell"><span title="${escapeHTML(item.project_path || t("common.notRecorded"))}">${escapeHTML(shortPath(item.project_path))}</span><small title="${escapeHTML(item.project_path || "")}">${escapeHTML(item.project_path || t("common.notRecorded"))}</small></div>
     <div class="session-cell"><strong title="${escapeHTML(item.model || t("common.unknownModel"))}">${escapeHTML(item.model || t("common.unknownModel"))}</strong><span>${escapeHTML(item.source || t("common.unknownSource"))}</span></div>
     <div class="session-cell"><span class="agent-badge">${escapeHTML(item.agent_type || "main")}</span><span class="confidence-badge ${escapeHTML(item.confidence)}">${confidenceLabel(item.confidence)}</span></div>
@@ -1496,11 +1496,10 @@ function renderSessions(items, { estimatesPending = false } = {}) {
     ${costCell}
     <div class="session-cell"><span>${escapeHTML(localTime(item.last_usage))}</span></div>
     <button class="session-filter pressable ${active ? "active" : ""}" type="button" data-session-filter="${escapeHTML(item.session_id)}" aria-pressed="${active}">${escapeHTML(t(active ? "details.cancelSessionFilter" : "details.onlySession"))}</button>
-    <section class="ledger-panel" data-ledger-panel hidden aria-label="轮与模型调用"></section>
   </article>`;
   }).join("");
   $$('[data-tree-toggle]', container).forEach(button => button.addEventListener("click", () => {const id=button.dataset.treeToggle;if(state.treeCollapsed.has(id)) state.treeCollapsed.delete(id);else state.treeCollapsed.add(id);renderSessions(state.treeItems);const toggle=$$('[data-tree-toggle]',container).find(b=>b.dataset.treeToggle===id);toggle?.focus();}));
-  $$('[data-ledger-thread]',container).forEach(button=>button.addEventListener("click",()=>toggleLedger(button)));
+  $$('[data-ledger-thread]',container).forEach(button=>button.addEventListener("click",()=>ledgerView.open(button.dataset.ledgerThread, button.closest('[data-session-id]').querySelector('.task-name strong')?.textContent)));
   $$('[data-session-filter]', container).forEach((button) => button.addEventListener("click", () => {
     if (state.filters.session_id === button.dataset.sessionFilter) delete state.filters.session_id;
     else state.filters.session_id = button.dataset.sessionFilter;
@@ -1511,28 +1510,7 @@ function renderSessions(items, { estimatesPending = false } = {}) {
   }));
 }
 
-const ledgerUsage = (u={}) => `输入 ${fullToken(u.input||0)} · 缓存读取 ${fullToken(u.cached_input||0)} · 非缓存输入 ${fullToken(Math.max(0,(u.input||0)-(u.cached_input||0)-(u.cache_write_input||0)))} · 缓存写入 ${fullToken(u.cache_write_input||0)} · 输出 ${fullToken(u.output||0)} · 推理输出 ${fullToken(u.reasoning_output||0)} · 总计 ${fullToken(u.total||0)}`;
-const ledgerPrice=(x={})=>`API 等价 ${x.api_equivalent?.unpriced_tokens?`部分 $${escapeHTML(x.api_equivalent.usd||'0')}`:`$${escapeHTML(x.api_equivalent?.usd||'0')}`} · Codex credits 估算 ${x.codex_credits?.unpriced_tokens?`部分 ${escapeHTML(x.codex_credits.credits||'未确认')}`:escapeHTML(x.codex_credits?.credits||'未确认')}`;
-const ledgerMessages = (items=[]) => items.map(m=>`<div class="ledger-message"><strong>${escapeHTML(m.kind)}${m.name?` · ${escapeHTML(m.name)}`:""}</strong><pre>${escapeHTML(m.text||"")}</pre></div>`).join("");
-async function toggleLedger(button) {
-  const panel=button.closest('[data-session-id]').querySelector('[data-ledger-panel]');
-  if(!panel.hidden){panel.hidden=true;button.setAttribute('aria-expanded','false');return}
-  panel.hidden=false;button.setAttribute('aria-expanded','true');panel.textContent='正在读取轮汇总…';
-  const thread=button.dataset.ledgerThread;
-  try {
-    const data=await api(`/api/v1/ledger?thread_id=${encodeURIComponent(thread)}`);
-    panel.innerHTML=`<p><strong>聊天汇总</strong> · ${escapeHTML(ledgerUsage(data.usage))}<br>${ledgerPrice(data)}</p>${(data.turns||[]).map((turn,i)=>`<article class="ledger-turn"><button type="button" class="ledger-turn-button" data-ledger-turn="${escapeHTML(turn.id)}" aria-expanded="false">第 ${i+1} 轮 · ${escapeHTML(turn.model||turn.models?.join(', ')||'模型未确认')} · ${fullToken(turn.usage?.total||0)} Token</button><small>${escapeHTML(ledgerUsage(turn.usage))} · ${ledgerPrice(turn)}</small><div data-ledger-turn-body hidden></div></article>`).join('')}`;
-    panel.querySelectorAll('[data-ledger-turn]').forEach(b=>b.addEventListener('click',async()=>{
-      const body=b.nextElementSibling.nextElementSibling;if(!body.hidden){body.hidden=true;b.setAttribute('aria-expanded','false');return}
-      body.hidden=false;b.setAttribute('aria-expanded','true');body.textContent='正在读取原始日志…';
-      try {const d=await api(`/api/v1/ledger?thread_id=${encodeURIComponent(thread)}&turn_id=${encodeURIComponent(b.dataset.ledgerTurn)}&limit=100`);const turn=d.turns.find(x=>x.id===b.dataset.ledgerTurn);
-        body.innerHTML=`<h4>模型调用</h4>${turn.calls.length?turn.calls.map((c,j)=>`<details class="ledger-call"><summary>调用 ${j+1} · ${escapeHTML(c.model||'模型未确认')} · ${fullToken(c.usage?.total||0)} Token</summary><p>${escapeHTML(ledgerUsage(c.usage))}<br>${ledgerPrice(c)}</p>${ledgerMessages(c.messages)}</details>`).join(''):'旧格式或缺少逐次调用身份，调用明细不可用'}<h4>本轮公开记录</h4><div data-ledger-messages>${ledgerMessages(turn.messages)}</div>${turn.message_count>turn.messages.length?'<button type="button" class="action-button quiet pressable" data-ledger-more>加载更多</button>':''}`;
-        const more=body.querySelector('[data-ledger-more]');
-        more?.addEventListener('click',async()=>{more.disabled=true;try{const offset=body.querySelectorAll('[data-ledger-messages] .ledger-message').length;const next=await api(`/api/v1/ledger?thread_id=${encodeURIComponent(thread)}&turn_id=${encodeURIComponent(b.dataset.ledgerTurn)}&offset=${offset}&limit=100`);const page=next.turns.find(x=>x.id===b.dataset.ledgerTurn);body.querySelector('[data-ledger-messages]').insertAdjacentHTML('beforeend',ledgerMessages(page.messages));if(offset+page.messages.length>=page.message_count)more.remove();else more.disabled=false}catch(e){more.textContent=e.message}});
-      }catch(e){body.textContent=e.message}
-    }));
-  }catch(e){panel.textContent=e.message}
-}
+const ledgerView = window.createLedgerView({ api, t, escapeHTML, fullToken, openDialog, closeDialog });
 
 function applySessionSearch() {
   clearTimeout(sessionSearchTimer);
@@ -1996,6 +1974,7 @@ function setupEvents() {
     syncSettingsForm();
     renderFilterOptions();
     renderFilterChips();
+    ledgerView.refreshLocale();
     try {
       await Promise.all([loadStatus(), loadCurrentView({ preserve: false })]);
     } catch (error) {

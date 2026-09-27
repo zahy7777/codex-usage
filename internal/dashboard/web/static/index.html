@@ -299,6 +299,13 @@
         <span id="versionLabel"></span><button class="text-button pressable" id="updateButton" type="button" aria-haspopup="dialog" aria-controls="updateDialog" data-i18n="update.title">软件更新</button></div></footer>
   </main>
 
+  <dialog class="modal-dialog ledger-dialog" id="ledgerDialog" aria-labelledby="ledgerTitle">
+    <div class="dialog-frame ledger-dialog-frame">
+      <div class="dialog-head ledger-dialog-head"><div><span class="ledger-eyebrow" data-i18n="ledger.chat">聊天</span><h2 id="ledgerTitle">—</h2></div><div class="ledger-dialog-actions"><a class="ledger-launch pressable" id="ledgerCodexLink" data-i18n="ledger.openCodex">在 Codex 打开</a><button class="dialog-close pressable" type="button" data-close aria-label="关闭聊天详情" data-i18n-aria-label="ledger.close">×</button></div><div class="ledger-projection-context" id="ledgerProjectionContext" hidden></div></div>
+      <div id="ledgerContent" aria-live="polite"></div>
+    </div>
+  </dialog>
+
   <dialog class="modal-dialog update-dialog" id="updateDialog" aria-labelledby="updateTitle">
     <div class="dialog-frame">
       <div class="dialog-head"><h2 id="updateTitle" data-i18n="update.title">软件更新</h2><button class="dialog-close pressable" type="button" data-close aria-label="关闭" data-i18n-aria-label="update.close">×</button></div>
@@ -433,6 +440,7 @@
 
   <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
   <script src="/i18n.js"></script>
+  <script src="/ledger.js" defer></script>
   <script src="/app.js" defer></script>
   <script src="/updates.js" defer></script>
 </body>

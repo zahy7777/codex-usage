@@ -30,13 +30,14 @@ test.beforeAll(async()=>{
   line('response_item',{type:'message',role:'user',content:[{type:'input_text',text:'question <script>bad()</script>'}]}),
   line('response_item',{type:'message',role:'assistant',phase:'commentary',content:[{type:'output_text',text:'first answer'}],internal_chat_message_metadata_passthrough:{turn_id:'new-turn'}}),
   line('response_item',{type:'custom_tool_call',name:'exec',call_id:'call-one',arguments:'{"cmd":"hello"}'}),
-  line('token_usage_record',{thread_id:'ledger-e2e',turn_id:'new-turn',response_id:'response-one',usage:usage(8,2,10,3),turn_token_usage:usage(8,2,10,3)}),
+  line('token_usage_record',{thread_id:'ledger-e2e',turn_id:'new-turn',response_id:'response-one',usage:{...usage(8,2,10,3),cache_write_input_tokens:1,reasoning_output_tokens:1},turn_token_usage:{...usage(8,2,10,3),cache_write_input_tokens:1,reasoning_output_tokens:1}}),
   line('response_item',{type:'custom_tool_call_output',call_id:'call-one',output:'tool result'}),
   line('turn_context',{turn_id:'new-turn',model:'gpt-6-luna'}),
   line('response_item',{type:'message',role:'assistant',phase:'final',content:[{type:'output_text',text:'second answer'}],internal_chat_message_metadata_passthrough:{turn_id:'new-turn'}}),
-  line('token_usage_record',{thread_id:'ledger-e2e',turn_id:'new-turn',response_id:'response-two',usage:usage(12,3,15,6),turn_token_usage:usage(20,5,25,9)}),
+  line('token_usage_record',{thread_id:'ledger-e2e',turn_id:'new-turn',response_id:'response-two',usage:usage(12,3,15,6),turn_token_usage:{...usage(20,5,25,9),cache_write_input_tokens:1,reasoning_output_tokens:1}}),
   line('turn_context',{turn_id:'old-turn',model:'gpt-5.4'}),
   line('response_item',{type:'message',role:'user',content:[{type:'input_text',text:'old question'}]}),
+  ...Array.from({length:105},(_,index)=>line('response_item',{type:'message',role:'assistant',phase:'final',content:[{type:'output_text',text:index===0?'long message '.repeat(100):`legacy message ${index}`}]})),
   line('event_msg',{type:'token_count',info:{total_token_usage:usage(4,1,5),last_token_usage:usage(4,1,5)}})
  ];
  rolloutPath=path.join(dir,'rollout-ledger-e2e.jsonl');
@@ -53,21 +54,62 @@ test('thread, turn and calls match deduplicated usage; text stays escaped',async
  const turn=data.turns.find(x=>x.id==='new-turn');
  expect(turn.usage.total).toBe(25);
  expect(turn.calls.map(x=>x.usage.total)).toEqual([10,15]);
+ expect(turn.calls[0].usage.cache_write_input).toBe(1);
+ expect(turn.calls[0].usage.reasoning_output).toBe(1);
  expect(turn.codex_credits.credits).toBeTruthy();
  expect(turn.api_equivalent.usd).toBeTruthy();
  expect(new Set(turn.models)).toEqual(new Set(['gpt-6-sol','gpt-6-luna']));
  expect(turn.messages.some(x=>x.kind==='tool_result'&&x.text==='tool result')).toBe(true);
+ expect(turn.messages.find(x=>x.kind==='assistant_commentary').response_id).toBe('response-one');
+ expect(turn.messages.find(x=>x.kind==='tool_result').response_id).toBe('response-one');
+ expect(turn.messages.find(x=>x.kind==='user').response_id).toBeUndefined();
+ expect(turn.calls.every(x=>!('messages' in x))).toBe(true);
  expect(data.turns.find(x=>x.id==='old-turn').calls).toEqual([]);
  await page.goto(`${url}/?lang=zh-CN#details`);
  const scriptCount=await page.locator('script').count();
  const row=page.locator('[data-session-id="ledger-e2e"]');
  await expect(row).toBeVisible();
  await expect(row.locator('a[href="codex://threads/ledger-e2e"]')).toBeVisible();
+ await expect(row.getByRole('link',{name:'在 Codex 打开'})).toBeVisible();
  await row.locator('[data-ledger-thread]').click();
- await expect(row.locator('[data-ledger-turn]')).toHaveCount(2);
- await row.locator('[data-ledger-turn="new-turn"]').click();
- await expect(row.locator('.ledger-call')).toHaveCount(2);
- await expect(row.locator('.ledger-message')).toContainText(['question <script>bad()</script>']);
+ const dialog=page.locator('#ledgerDialog');
+ await expect(dialog).toBeVisible();
+ expect((await dialog.boundingBox()).width).toBeGreaterThan(1000);
+ expect(await dialog.evaluate(x=>x.scrollWidth<=x.clientWidth)).toBe(true);
+ await expect(dialog.locator('.ledger-turn')).toHaveCount(2);
+ await expect(dialog.locator('.ledger-segment')).toHaveCount(12);
+ const first=dialog.locator('[data-ledger-turn-id="new-turn"]');
+ const firstIndex=await first.getAttribute('data-ledger-turn-index');
+ await first.locator('[data-ledger-expand]').click();
+ await expect(first.locator('.ledger-call')).toHaveCount(2);
+ await expect(first.locator('[data-level="call"][data-call-index="0"] .ledger-segment')).toHaveCount(4);
+ await expect(first.locator('.ledger-call').first().locator('.ledger-numbers')).toContainText('其中缓存写入1');
+ await expect(first.locator('.ledger-user')).toContainText('question <script>bad()</script>');
+ await expect(first.locator('.ledger-user')).toContainText('所属轮次用量');
+ await first.locator(`[data-ledger-call-expand="${firstIndex}:0"]`).click();
+ await expect(first.locator(`[data-ledger-call-messages="${firstIndex}:0"]`)).toContainText('first answer');
+ await expect(first.locator(`[data-ledger-call-messages="${firstIndex}:0"]`)).toContainText('tool result');
+ await expect(first.locator('.ledger-tag-tool_call')).toContainText('工具调用');
+ await expect(first.locator('.ledger-tag-tool_result')).toContainText('工具结果');
+ await expect(first.locator('.ledger-message')).toHaveCount(5);
+ const reservedHeight=await dialog.locator('#ledgerProjectionContext').evaluate(x=>x.getBoundingClientRect().height);
+ await first.locator('[data-level="call"][data-call-index="0"]').hover();
+ await expect(first.locator('[data-level="turn"]')).toHaveClass(/has-projection/);
+ await expect(dialog.locator('[data-ledger-bar][data-level="chat"]')).toHaveClass(/has-projection/);
+ await expect(dialog.locator('#ledgerProjectionContext')).toBeVisible();
+ expect(await dialog.locator('#ledgerProjectionContext').evaluate(x=>x.getBoundingClientRect().height)).toBeCloseTo(reservedHeight,0);
+ const cachedProjection=await first.locator('[data-level="turn"] [data-part="cached"] .ledger-projection').evaluate(x=>Number.parseFloat(x.style.width));
+ expect(cachedProjection).toBeCloseTo(100/3,3);
+ await first.locator('[data-level="turn"]').hover();
+ await expect(first.locator('[data-level="call"][data-call-index="0"]')).toHaveClass(/is-contributor/);
+ await expect(first.locator('[data-level="turn"]')).not.toHaveClass(/has-projection/);
+ await first.locator('[data-level="call"][data-call-index="0"]').focus();
+ await expect(first.locator('[data-level="turn"]')).toHaveClass(/has-projection/);
+ const parts=await dialog.locator('[data-ledger-bar][data-level="chat"] .ledger-segment').evaluateAll(items=>items.map(x=>Number.parseFloat(x.style.width)));
+ expect(parts.reduce((a,b)=>a+b,0)).toBeCloseTo(100,3);
+ await dialog.locator('[data-close]').click();
+ await expect(dialog).toBeHidden();
+ await expect(row.locator('[data-ledger-thread]')).toBeFocused();
  expect(await page.locator('script').count()).toBe(scriptCount);
  await page.locator('.primary-nav').getByRole('tab',{name:'概览'}).click();
  await page.locator('#pricingButton').click();
@@ -83,8 +125,49 @@ test('thread, turn and calls match deduplicated usage; text stays escaped',async
  await expect.poll(async()=>{const r=await fetch(`${url}/api/v1/pricing/credits`);return (await r.json()).overrides?.['gpt-6-sol']?.[0]?.input}).toBe('100');
  await appendFile(rolloutPath,[
   line('turn_context',{turn_id:'new-turn',model:'gpt-6-luna'}),
-  line('token_usage_record',{thread_id:'ledger-e2e',turn_id:'new-turn',response_id:'response-three',usage:usage(8,2,10,4),turn_token_usage:usage(28,7,35,13)})
+  line('token_usage_record',{thread_id:'ledger-e2e',turn_id:'new-turn',response_id:'response-three',usage:usage(8,2,10,4),turn_token_usage:{...usage(28,7,35,13),cache_write_input_tokens:1,reasoning_output_tokens:1}})
  ].map(x=>JSON.stringify(x)).join('\n')+'\n');
  await new Promise((resolve,reject)=>{const hook=spawn(path.resolve(binary),['hook-stop','--state-dir',state],{env:{...process.env,CODEX_USAGE_HOME:''},stdio:['pipe','pipe','pipe'],windowsHide:true});let output='';hook.stdout.on('data',b=>output+=b);hook.stdin.end(JSON.stringify({session_id:'ledger-e2e',turn_id:'new-turn'}));hook.on('error',reject);hook.on('exit',code=>code===0&&output.trim()==='{}'?resolve():reject(new Error(`hook exit ${code}: ${output}`)))});
  await expect.poll(async()=>{const r=await fetch(`${url}/api/v1/ledger?thread_id=ledger-e2e`);return (await r.json()).usage.total}).toBe(40);
+});
+
+test('paged messages are unique, long content expands, and selection works without hover',async({page})=>{
+ await page.goto(`${url}/?lang=en#details`);
+ await page.locator('[data-session-id="ledger-e2e"] [data-ledger-thread]').click();
+ const dialog=page.locator('#ledgerDialog');
+ const old=dialog.locator('[data-ledger-turn-id="old-turn"]');
+ await old.locator('[data-ledger-expand]').click();
+ await expect(old.locator('.ledger-message')).toHaveCount(100);
+ await old.getByText('Expand full message',{exact:true}).click();
+ await expect(old.locator('.ledger-message-body')).toHaveAttribute('open','');
+ await old.getByRole('button',{name:'Load more messages'}).click();
+ await expect(old.locator('.ledger-message')).toHaveCount(106);
+ await expect(old.getByRole('button',{name:'Load more messages'})).toBeHidden();
+ const bar=old.locator('[data-level="turn"]');
+ await bar.click();
+ await expect(bar).toHaveAttribute('aria-pressed','true');
+ await expect(dialog.locator('[data-ledger-bar][data-level="chat"]')).toHaveClass(/has-projection/);
+ await bar.click();
+ await expect(bar).toHaveAttribute('aria-pressed','false');
+ await expect(dialog.locator('[data-ledger-bar][data-level="chat"]')).not.toHaveClass(/has-projection/);
+ await page.keyboard.press('Escape');
+ await expect(dialog).toBeHidden();
+});
+
+test('old records remain readable and the dialog fits a narrow viewport',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.route('**/api/v1/sessions?**',async route=>{const response=await route.fetch();const data=await response.json();data.items.forEach(item=>item.title='很长的聊天标题用于验证弹窗不会把按钮挤出窗口。'.repeat(12));await route.fulfill({response,json:data})});
+ await page.goto(`${url}/?lang=zh-CN#details`);
+ await page.locator('[data-session-id="ledger-e2e"] [data-ledger-thread]').click();
+ const dialog=page.locator('#ledgerDialog');
+ await dialog.locator('[data-ledger-turn-id="old-turn"] [data-ledger-expand]').click();
+ await expect(dialog.locator('.ledger-unavailable')).toContainText('调用明细不可用');
+ await expect(dialog.locator('.ledger-user')).toContainText('old question');
+ const bounds=await dialog.boundingBox();
+ expect(bounds.x).toBeGreaterThanOrEqual(0);
+ expect(bounds.width).toBeLessThanOrEqual(390);
+ expect(await dialog.evaluate(x=>x.scrollWidth<=x.clientWidth)).toBe(true);
+ expect(await dialog.locator('.ledger-dialog-frame').evaluate(x=>x.scrollWidth<=x.clientWidth)).toBe(true);
+ await page.keyboard.press('Escape');
+ await expect(dialog).toBeHidden();
 });

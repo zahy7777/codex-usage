@@ -18,7 +18,7 @@ func Handler() http.Handler {
 	sub, _ := fs.Sub(assets, "static")
 	files := http.FileServer(http.FS(sub))
 	index, _ := fs.ReadFile(sub, "index.html")
-	for _, name := range []string{"styles.css", "i18n.js", "app.js", "updates.js", "icon.svg", "favicon-32.png", "apple-touch-icon.png"} {
+	for _, name := range []string{"styles.css", "i18n.js", "ledger.js", "app.js", "updates.js", "icon.svg", "favicon-32.png", "apple-touch-icon.png"} {
 		content, _ := fs.ReadFile(sub, name)
 		index = bytes.ReplaceAll(index, []byte(`"/`+name+`"`),
 			[]byte(`"/`+name+`?v=`+assetVersion(content)+`"`))

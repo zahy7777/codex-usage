@@ -9,7 +9,7 @@ const outputRoot = path.resolve(process.argv[2] || path.join(repoRoot, "dist", "
 await rm(outputRoot, { recursive: true, force: true });
 await mkdir(outputRoot, { recursive: true });
 
-const assets = ["styles.css", "i18n.js", "app.js", "updates.js", "icon.svg", "favicon-32.png", "apple-touch-icon.png"];
+const assets = ["styles.css", "i18n.js", "ledger.js", "app.js", "updates.js", "icon.svg", "favicon-32.png", "apple-touch-icon.png"];
 for (const file of assets) {
   await copyFile(path.join(sourceRoot, file), path.join(outputRoot, file));
 }

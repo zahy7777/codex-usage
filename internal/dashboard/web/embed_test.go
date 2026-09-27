@@ -26,13 +26,13 @@ func TestHandlerUsesContentVersionedAssets(t *testing.T) {
 		t.Fatalf("index cache control=%q", got)
 	}
 	text := string(body)
-	for _, pattern := range []string{`/styles\.css\?v=[0-9a-f]{12}`, `/i18n\.js\?v=[0-9a-f]{12}`, `/app\.js\?v=[0-9a-f]{12}`, `/updates\.js\?v=[0-9a-f]{12}`, `/icon\.svg\?v=[0-9a-f]{12}`, `/favicon-32\.png\?v=[0-9a-f]{12}`, `/apple-touch-icon\.png\?v=[0-9a-f]{12}`} {
+	for _, pattern := range []string{`/styles\.css\?v=[0-9a-f]{12}`, `/i18n\.js\?v=[0-9a-f]{12}`, `/ledger\.js\?v=[0-9a-f]{12}`, `/app\.js\?v=[0-9a-f]{12}`, `/updates\.js\?v=[0-9a-f]{12}`, `/icon\.svg\?v=[0-9a-f]{12}`, `/favicon-32\.png\?v=[0-9a-f]{12}`, `/apple-touch-icon\.png\?v=[0-9a-f]{12}`} {
 		if !regexp.MustCompile(pattern).MatchString(text) {
 			t.Fatalf("index missing versioned asset %q", pattern)
 		}
 	}
 
-	for _, asset := range []string{"/styles.css?v=test", "/i18n.js?v=test", "/app.js?v=test", "/updates.js?v=test", "/icon.svg?v=test", "/favicon-32.png?v=test", "/apple-touch-icon.png?v=test"} {
+	for _, asset := range []string{"/styles.css?v=test", "/i18n.js?v=test", "/ledger.js?v=test", "/app.js?v=test", "/updates.js?v=test", "/icon.svg?v=test", "/favicon-32.png?v=test", "/apple-touch-icon.png?v=test"} {
 		assetResponse, err := http.Get(server.URL + asset)
 		if err != nil {
 			t.Fatal(err)
