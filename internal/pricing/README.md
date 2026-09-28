@@ -5,3 +5,5 @@ Pricing 拥有模型费率和估算规则。`catalog.go` 与 `pricing.go` 计算
 ## 费率维护
 
 每周维护时核对 [API Standard 文本费率](https://developers.openai.com/api/docs/pricing)、[Codex Standard credits](https://learn.chatgpt.com/docs/pricing) 和 [Codex Fast 规则](https://learn.chatgpt.com/docs/agent-configuration/speed)。三套规则分别核对，不相互换算。只更新官方来源能证实的值；只有真实变化才更新对应快照日期、执行测试并提交。个人 skill `update-codex-pricing` 记录完整核对与直接推送流程；项目本身只拥有费率事实与估算行为。
+
+2026-09-28 核对：API Standard 短上下文文本表与 [GPT-5.6 Sol 模型页](https://developers.openai.com/api/docs/models/gpt-5.6-sol) 一致，Sol 输入／缓存读取／缓存写入／输出从 5／0.5／6.25／30 调整为 4／0.4／5／20 USD / 1M token。模型页确认 `gpt-5.6` 别名指向 Sol，缓存写入为普通输入的 1.25 倍，并说明优惠至少持续到 2026-11-21；未提供明确生效日，因此 API 快照记录核对日期，不推断历史改价。其余内置 API 费率、Codex Standard credits 与 Fast 倍率均未变，保留各自快照日期和用户覆盖能力。

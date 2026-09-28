@@ -56,10 +56,10 @@ func TestResolveBuiltInAndVersionedSnapshot(t *testing.T) {
 	if !ok {
 		t.Fatal("expected a versioned built-in model to resolve")
 	}
-	if rate.CanonicalModel != "gpt-5.6-sol" || rate.InputNanoPerToken != 5000 || rate.CachedNanoPerToken != 500 || rate.OutputNanoPerToken != 30000 {
+	if rate.CanonicalModel != "gpt-5.6-sol" || rate.InputNanoPerToken != 4000 || rate.CachedNanoPerToken != 400 || rate.OutputNanoPerToken != 20000 {
 		t.Fatalf("unexpected rate: %#v", rate)
 	}
-	if rate.CacheWriteNanoPerToken == nil || *rate.CacheWriteNanoPerToken != 6250 {
+	if rate.CacheWriteNanoPerToken == nil || *rate.CacheWriteNanoPerToken != 5000 {
 		t.Fatalf("unexpected cache-write rate: %#v", rate.CacheWriteNanoPerToken)
 	}
 }
