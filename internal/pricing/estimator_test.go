@@ -44,14 +44,45 @@ func TestEvaluateEventSeparatesOverlappingTokenCategories(t *testing.T) {
 		t.Fatal(err)
 	}
 	estimate := aggregate.estimate()
-	if estimate.USD != "0.007225000" {
+	if estimate.USD != "0.005380000" {
 		t.Fatalf("unexpected estimate %s", estimate.USD)
 	}
 	if estimate.PricedTokens != 1100 || estimate.UnpricedTokens != 0 || estimate.CoverageRatio != 1 {
 		t.Fatalf("unexpected coverage: %#v", estimate)
 	}
-	if estimate.RegularInputUSD != "0.003500000" || estimate.CachedInputUSD != "0.000100000" || estimate.CacheWriteInputUSD != "0.000625000" || estimate.OutputUSD != "0.003000000" {
+	if estimate.RegularInputUSD != "0.002800000" || estimate.CachedInputUSD != "0.000080000" || estimate.CacheWriteInputUSD != "0.000500000" || estimate.OutputUSD != "0.002000000" {
 		t.Fatalf("unexpected category estimates: %#v", estimate)
+	}
+}
+
+func TestGPT56SolAPIAndCreditsStayIndependent(t *testing.T) {
+	for _, name := range []string{"gpt-5.6-sol", "gpt-5.6", "gpt-5.6-sol-2026-07-15", "gpt-5.6-2026-07-15"} {
+		for _, mode := range []string{model.ModeStandard, model.ModeFast} {
+			t.Run(name+"/"+mode, func(t *testing.T) {
+				event := model.UsageEvent{
+					Model: name, Confidence: model.ConfidenceExact,
+					ServiceMode: model.ServiceMode{ServiceMode: mode},
+					Usage:       model.TokenUsage{Input: 1000, CachedInput: 200, CacheWriteInput: 100, Output: 100, ReasoningOutput: 50, Total: 1100},
+				}
+				builder, err := NewBuilder(nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := builder.Add(event); err != nil {
+					t.Fatal(err)
+				}
+				if got := builder.Report().Summary; got.USD != "0.005380000" || got.PricedTokens != 1100 || got.UnpricedTokens != 0 {
+					t.Fatalf("API Standard 估算与模式无关: %+v", got)
+				}
+				wantCredits := "0.132000"
+				if mode == model.ModeFast {
+					wantCredits = "0.330000"
+				}
+				if got := QuoteCredits([]model.UsageEvent{event}, nil); got.Credits != wantCredits || got.PricedTokens != 1100 || got.UnpricedTokens != 0 || got.Note != "" {
+					t.Fatalf("credits 应使用独立价目表和 Fast 倍率: %+v", got)
+				}
+			})
+		}
 	}
 }
 
@@ -108,7 +139,7 @@ func TestEvaluateEventAlwaysUsesStandardShortContextRates(t *testing.T) {
 	if err := aggregate.add(evaluated); err != nil {
 		t.Fatal(err)
 	}
-	if got := aggregate.estimate().USD; got != "1.530000000" {
+	if got := aggregate.estimate().USD; got != "1.220000000" {
 		t.Fatalf("unexpected short-context estimate %s", got)
 	}
 	if evaluated.pricedTokens != 301000 || evaluated.unpricedTokens != 0 || len(evaluated.reasons) != 0 {
