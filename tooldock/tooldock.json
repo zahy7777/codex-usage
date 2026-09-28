@@ -18,7 +18,7 @@
         "stop": "scripts/dashboard-stop.ps1",
         "status": "scripts/dashboard-status.ps1"
       },
-      "startTimeoutMs": 30000
+      "startTimeoutMs": 240000
     }
   ]
 }

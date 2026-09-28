@@ -1,11 +1,23 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$utf8WithoutBom = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = $utf8WithoutBom
+$OutputEncoding = $utf8WithoutBom
 
 function Get-CodexUsageSettings {
+    $integrationDirectory = Split-Path -Parent $PSScriptRoot
+    $configuredProjectRoot = [Environment]::GetEnvironmentVariable('TOOLDOCK_PROJECT_ROOT', 'Process')
+    if ([string]::IsNullOrWhiteSpace($configuredProjectRoot)) {
+        $projectRoot = [IO.Path]::GetFullPath((Join-Path $integrationDirectory '..'))
+    }
+    else {
+        $projectRoot = [IO.Path]::GetFullPath($configuredProjectRoot)
+    }
+
     $customHome = [Environment]::GetEnvironmentVariable('CODEX_USAGE_HOME', 'Process')
     if (-not [string]::IsNullOrWhiteSpace($customHome)) {
         $stateDirectory = [IO.Path]::GetFullPath($customHome.Trim())
-        $executablePath = Join-Path $stateDirectory 'bin\codex-usage.exe'
+        $installedExecutablePath = Join-Path $stateDirectory 'bin\codex-usage.exe'
     }
     else {
         $localAppData = [Environment]::GetEnvironmentVariable('LOCALAPPDATA', 'Process')
@@ -14,7 +26,14 @@ function Get-CodexUsageSettings {
         }
 
         $stateDirectory = Join-Path $localAppData 'codex-usage'
-        $executablePath = Join-Path $localAppData 'Programs\codex-usage\codex-usage.exe'
+        $installedExecutablePath = Join-Path $localAppData 'Programs\codex-usage\codex-usage.exe'
+    }
+    $projectExecutablePath = Join-Path $integrationDirectory 'runtime\codex-usage.exe'
+    $executablePath = if (Test-Path -LiteralPath $installedExecutablePath -PathType Leaf) {
+        $installedExecutablePath
+    }
+    else {
+        $projectExecutablePath
     }
 
     $listenAddress = '127.0.0.1'
@@ -54,8 +73,105 @@ function Get-CodexUsageSettings {
         StateDirectory = $stateDirectory
         ConfigPath     = $configPath
         ExecutablePath = [IO.Path]::GetFullPath($executablePath)
+        InstalledExecutablePath = [IO.Path]::GetFullPath($installedExecutablePath)
+        ProjectExecutablePath = [IO.Path]::GetFullPath($projectExecutablePath)
+        ProjectRoot    = $projectRoot
         Port           = $port
         BaseUrl        = "http://127.0.0.1:$port"
+    }
+}
+
+function Get-CodexUsageGoExecutable {
+    $configuredGo = [Environment]::GetEnvironmentVariable('CODEX_USAGE_GO', 'Process')
+    if (-not [string]::IsNullOrWhiteSpace($configuredGo)) {
+        $configuredPath = [IO.Path]::GetFullPath($configuredGo.Trim())
+        if (Test-Path -LiteralPath $configuredPath -PathType Leaf) {
+            return $configuredPath
+        }
+        throw "CODEX_USAGE_GO 指向的文件不存在：$configuredPath"
+    }
+
+    foreach ($commandName in @('go.exe', 'go')) {
+        $command = Get-Command -Name $commandName -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+        if ($null -ne $command) {
+            return $command.Source
+        }
+    }
+
+    $candidates = @()
+    $localAppData = [Environment]::GetEnvironmentVariable('LOCALAPPDATA', 'Process')
+    if (-not [string]::IsNullOrWhiteSpace($localAppData)) {
+        $toolchainsDirectory = Join-Path $localAppData 'codex-usage-tools'
+        if (Test-Path -LiteralPath $toolchainsDirectory -PathType Container) {
+            $candidates += Get-ChildItem -LiteralPath $toolchainsDirectory -Directory -Filter 'go*' |
+                Sort-Object -Property Name -Descending |
+                ForEach-Object { Join-Path $_.FullName 'bin\go.exe' }
+        }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:ProgramFiles)) {
+        $candidates += Join-Path $env:ProgramFiles 'Go\bin\go.exe'
+    }
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return [IO.Path]::GetFullPath($candidate)
+        }
+    }
+
+    throw '找不到 Go 1.26。请安装 Go，或设置 CODEX_USAGE_GO 指向 go.exe。'
+}
+
+function Build-CodexUsageFromSource {
+    param(
+        [Parameter(Mandatory = $true)]
+        [pscustomobject]$Settings
+    )
+
+    if (-not (Test-Path -LiteralPath (Join-Path $Settings.ProjectRoot 'go.mod') -PathType Leaf)) {
+        throw "项目根目录中找不到 go.mod：$($Settings.ProjectRoot)"
+    }
+
+    $goExecutable = Get-CodexUsageGoExecutable
+    $runtimeDirectory = Split-Path -Parent $Settings.ProjectExecutablePath
+    New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
+
+    $previousToolchain = [Environment]::GetEnvironmentVariable('GOTOOLCHAIN', 'Process')
+    $previousProxy = [Environment]::GetEnvironmentVariable('GOPROXY', 'Process')
+    $buildOutput = @()
+    $buildExitCode = 1
+    $locationPushed = $false
+    try {
+        $env:GOTOOLCHAIN = 'local'
+        $env:GOPROXY = 'off'
+        Push-Location -LiteralPath $Settings.ProjectRoot
+        $locationPushed = $true
+        $buildOutput = @(& $goExecutable build -mod=readonly -o $Settings.ProjectExecutablePath ./cmd/codex-usage 2>&1)
+        $buildExitCode = $LASTEXITCODE
+    }
+    finally {
+        if ($locationPushed) {
+            Pop-Location
+        }
+        if ($null -eq $previousToolchain) {
+            Remove-Item Env:GOTOOLCHAIN -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:GOTOOLCHAIN = $previousToolchain
+        }
+        if ($null -eq $previousProxy) {
+            Remove-Item Env:GOPROXY -ErrorAction SilentlyContinue
+        }
+        else {
+            $env:GOPROXY = $previousProxy
+        }
+    }
+
+    if ($buildExitCode -ne 0 -or -not (Test-Path -LiteralPath $Settings.ProjectExecutablePath -PathType Leaf)) {
+        $details = ($buildOutput | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+        if ([string]::IsNullOrWhiteSpace($details)) {
+            $details = 'Go 没有生成可执行文件。'
+        }
+        throw "从本地源码构建 Codex Usage 失败（退出码 $buildExitCode）：$details"
     }
 }
 
@@ -205,7 +321,7 @@ function Get-CodexUsageRuntimeState {
 
     $message = 'Codex Usage 当前已停止。'
     if (-not (Test-Path -LiteralPath $settings.ExecutablePath -PathType Leaf)) {
-        $message = 'Codex Usage 当前未运行；找不到已安装的程序，启动前请先安装。'
+        $message = 'Codex Usage 当前已停止；点击启动时会从当前仓库构建本地程序。'
     }
 
     [pscustomobject]@{
