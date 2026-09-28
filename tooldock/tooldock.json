@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "name": "Codex Usage",
+  "description": "查看本机 Codex 用量与会话统计",
+  "category": "开发工具",
+  "icon": "assets/icon.png",
+  "services": [
+    {
+      "id": "dashboard",
+      "name": "本地用量面板",
+      "kind": "atomic",
+      "location": "local",
+      "access": {
+        "type": "web"
+      },
+      "scripts": {
+        "start": "scripts/dashboard-start.ps1",
+        "stop": "scripts/dashboard-stop.ps1",
+        "status": "scripts/dashboard-status.ps1"
+      },
+      "startTimeoutMs": 30000
+    }
+  ]
+}
