@@ -948,8 +948,9 @@ test("custom minute range queries real event totals, validates bounds, and uses 
   } finally { await context.close(); }
 });
 
-test("GPT-6 Sol and Luna price recorded usage and appear in the catalog", async ({ page }, testInfo) => {
+test("GPT-6 Sol variants and Luna price recorded usage and appear in the catalog", async ({ page }, testInfo) => {
   const cases = [
+    { model: "gpt-6.1-sol", recorded: "gpt-6.1-sol", display: "GPT-6.1 Sol", rates: ["2.00", "0.10", "2.50", "10.00"], standard: "0.002670000", fast: "0.006675000" },
     { model: "gpt-6-sol", recorded: "gpt-6-sol", display: "GPT-6 Sol", rates: ["2.00", "0.20", "2.50", "10.00"], standard: "0.002690000", fast: "0.006725000" },
     { model: "gpt-6-luna", recorded: "gpt-6-luna-2026-09-22", display: "GPT-6 Luna", rates: ["0.10", "0.01", "0.125", "0.50"], standard: "0.000134500", fast: "0.000336250" }
   ];

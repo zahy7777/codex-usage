@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	CatalogAsOf = "2026-09-28"
+	CatalogAsOf = "2026-10-05"
 	Currency    = "USD"
 	Basis       = "current_standard_api_text_token_prices"
 )
@@ -51,6 +51,12 @@ var builtInCatalog = []CatalogEntry{
 		InputUSDPerMillion: "10.00", CachedInputUSDPerMillion: "1.00",
 		CacheWriteInputUSDPerMillion: "12.50", OutputUSDPerMillion: "50.00",
 		Source: "https://developers.openai.com/api/docs/models/gpt-6-astra",
+	},
+	{
+		Model: "gpt-6.1-sol", DisplayName: "GPT-6.1 Sol",
+		InputUSDPerMillion: "2.00", CachedInputUSDPerMillion: "0.10",
+		CacheWriteInputUSDPerMillion: "2.50", OutputUSDPerMillion: "10.00",
+		Source: "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
 	},
 	{
 		Model: "gpt-6-sol", DisplayName: "GPT-6 Sol",
@@ -205,11 +211,11 @@ func Resolve(model string, overrides map[string]Override) (ResolvedRate, bool, e
 func resolveBuiltIn(model string) (CatalogEntry, bool) {
 	model = strings.ToLower(strings.TrimSpace(model))
 	for _, entry := range builtInCatalog {
-		if modelMatches(model, entry.Model) {
+		if modelMatches(model, entry.Model, len(entry.SnapshotPatterns) > 0) {
 			return entry, true
 		}
 		for _, alias := range entry.Aliases {
-			if modelMatches(model, alias) {
+			if modelMatches(model, alias, len(entry.SnapshotPatterns) > 0) {
 				return entry, true
 			}
 		}
@@ -217,9 +223,12 @@ func resolveBuiltIn(model string) (CatalogEntry, bool) {
 	return CatalogEntry{}, false
 }
 
-func modelMatches(model, base string) bool {
+func modelMatches(model, base string, allowSnapshot bool) bool {
 	if model == base {
 		return true
+	}
+	if !allowSnapshot {
+		return false
 	}
 	if !strings.HasPrefix(model, base+"-") {
 		return false

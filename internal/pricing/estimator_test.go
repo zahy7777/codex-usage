@@ -76,7 +76,7 @@ func TestGPT56SolAPIAndCreditsStayIndependent(t *testing.T) {
 				}
 				wantCredits := "0.132000"
 				if mode == model.ModeFast {
-					wantCredits = "0.330000"
+					wantCredits = "0.264000"
 				}
 				if got := QuoteCredits([]model.UsageEvent{event}, nil); got.Credits != wantCredits || got.PricedTokens != 1100 || got.UnpricedTokens != 0 || got.Note != "" {
 					t.Fatalf("credits 应使用独立价目表和 Fast 倍率: %+v", got)
@@ -86,10 +86,25 @@ func TestGPT56SolAPIAndCreditsStayIndependent(t *testing.T) {
 	}
 }
 
-func TestGPT6SolAndLunaCategoryEstimates(t *testing.T) {
+func TestGPT61SolCreditsUsePublishedCachedRate(t *testing.T) {
+	event := model.UsageEvent{
+		Model: "gpt-6.1-sol", Confidence: model.ConfidenceExact,
+		Usage: model.TokenUsage{Input: 1000, CachedInput: 200, CacheWriteInput: 100, Output: 100, Total: 1100},
+	}
+	if got := QuoteCredits([]model.UsageEvent{event}, nil); got.Credits != "0.065500" || got.UnpricedTokens != 0 {
+		t.Fatalf("Standard credits: %+v", got)
+	}
+	event.ServiceMode = model.ServiceMode{ServiceMode: model.ModeFast}
+	if got := QuoteCredits([]model.UsageEvent{event}, nil); got.Credits != "0.131000" || got.UnpricedTokens != 0 {
+		t.Fatalf("Fast credits: %+v", got)
+	}
+}
+
+func TestGPT6CategoryEstimates(t *testing.T) {
 	for _, tt := range []struct {
 		name, regular, cached, write, output, standard, fast string
 	}{
+		{"gpt-6.1-sol", "0.001400000", "0.000020000", "0.000250000", "0.001000000", "0.002670000", "0.006675000"},
 		{"gpt-6-sol", "0.001400000", "0.000040000", "0.000250000", "0.001000000", "0.002690000", "0.006725000"},
 		{"gpt-6-luna", "0.000070000", "0.000002000", "0.000012500", "0.000050000", "0.000134500", "0.000336250"},
 	} {

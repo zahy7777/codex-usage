@@ -10,7 +10,7 @@ import (
 	"github.com/zJay26/codex-usage/internal/conversation/model"
 )
 
-const CreditCatalogAsOf = "2026-09-28"
+const CreditCatalogAsOf = "2026-10-05"
 const CreditCatalogSource = "https://learn.chatgpt.com/docs/pricing"
 
 // CreditRate is a Standard-speed Codex rate in credits per million tokens.
@@ -30,6 +30,7 @@ type CreditQuote struct {
 
 var standardCreditRates = map[string]CreditRate{
 	"gpt-6-astra":   {Input: "250", CachedInput: "25", Output: "1250"},
+	"gpt-6.1-sol":   {Input: "50", CachedInput: "2.5", Output: "250"},
 	"gpt-6-sol":     {Input: "50", CachedInput: "5", Output: "250"},
 	"gpt-6-luna":    {Input: "2.5", CachedInput: "0.25", Output: "12.5"},
 	"gpt-5.6-sol":   {Input: "100", CachedInput: "10", Output: "500"},
@@ -103,7 +104,7 @@ func QuoteCredits(events []model.UsageEvent, overrides map[string][]CreditRate) 
 		value.Add(value, new(big.Rat).Mul(output, big.NewRat(u.Output, 1)))
 		value.Quo(value, big.NewRat(1_000_000, 1))
 		if event.ServiceMode.ServiceMode == model.ModeFast {
-			n, d, found := FastMultiplier(event.Model)
+			n, d, found := FastCreditMultiplier(event.Model)
 			if !found {
 				result.UnpricedTokens += u.Total
 				continue
