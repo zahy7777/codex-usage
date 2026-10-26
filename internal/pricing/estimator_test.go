@@ -100,6 +100,18 @@ func TestGPT61SolCreditsUsePublishedCachedRate(t *testing.T) {
 	}
 }
 
+func TestRetiredGPT55CodexCreditsAreUnpriced(t *testing.T) {
+	for _, mode := range []model.ServiceMode{{ServiceMode: model.ModeStandard}, {ServiceMode: model.ModeFast}} {
+		event := model.UsageEvent{
+			Model: "gpt-5.5", Confidence: model.ConfidenceExact, ServiceMode: mode,
+			Usage: model.TokenUsage{Input: 1000, Output: 100, Total: 1100},
+		}
+		if got := QuoteCredits([]model.UsageEvent{event}, nil); got.Credits != "" || got.PricedTokens != 0 || got.UnpricedTokens != 1100 {
+			t.Fatalf("retired GPT-5.5 Codex credits should remain unpriced: %+v", got)
+		}
+	}
+}
+
 func TestGPT6CategoryEstimates(t *testing.T) {
 	for _, tt := range []struct {
 		name, regular, cached, write, output, standard, fast string

@@ -10,7 +10,7 @@ import (
 	"github.com/zJay26/codex-usage/internal/conversation/model"
 )
 
-const CreditCatalogAsOf = "2026-10-05"
+const CreditCatalogAsOf = "2026-10-26"
 const CreditCatalogSource = "https://learn.chatgpt.com/docs/pricing"
 
 // CreditRate is a Standard-speed Codex rate in credits per million tokens.
@@ -36,7 +36,6 @@ var standardCreditRates = map[string]CreditRate{
 	"gpt-5.6-sol":   {Input: "100", CachedInput: "10", Output: "500"},
 	"gpt-5.6-terra": {Input: "50", CachedInput: "5", Output: "300"},
 	"gpt-5.6-luna":  {Input: "5", CachedInput: "0.5", Output: "30"},
-	"gpt-5.5":       {Input: "125", CachedInput: "12.5", Output: "750"},
 	"gpt-5.4":       {Input: "62.5", CachedInput: "6.25", Output: "375"},
 	"gpt-5.4-mini":  {Input: "18.75", CachedInput: "1.875", Output: "113"},
 }
